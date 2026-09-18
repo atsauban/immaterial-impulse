@@ -1,5 +1,6 @@
 import qs
 import qs.modules.common
+import qs.modules.common.widgets
 import qs.services
 import QtQuick
 import Quickshell
@@ -44,8 +45,22 @@ Scope {
         // the other Top surface on the band's edge, no longer overlaps it:
         // the pill sits on the band or above it.
         WlrLayershell.layer: WlrLayer.Top
-        color: band.painted ? FrameGeometry.color : "transparent"
+        // The colour goes on a child rect, not on the window, so the
+        // compositor's blur region has an item to follow. Unblurred, the band
+        // was the bar's colour over RAW wallpaper while the bar was the same
+        // colour over a blurred one - measured side by side, a green-grey bar
+        // above a blue band, which is the opposite of one connected surface.
+        color: "transparent"
         mask: Region {}
+        Rectangle {
+            id: bandFill
+            anchors.fill: parent
+            color: band.painted ? FrameGeometry.color : "transparent"
+        }
+        WindowBlurRegion {
+            targetWindow: band
+            regionItem: band.painted ? bandFill : null
+        }
         anchors {
             left: band.edge !== "right"
             right: band.edge !== "left"
@@ -63,8 +78,11 @@ Scope {
             left: band.bandMargins.left
             right: band.bandMargins.right
         }
-        implicitWidth: (band.edge === "left" || band.edge === "right") ? Math.max(1, FrameGeometry.thickness) : 0
-        implicitHeight: (band.edge === "top" || band.edge === "bottom") ? Math.max(1, FrameGeometry.thickness) : 0
+        // Its own edge's thickness: the gap under a covering bar's plate, the
+        // configured thickness everywhere else.
+        readonly property real extent: FrameGeometry.bandExtent(band.edge)
+        implicitWidth: (band.edge === "left" || band.edge === "right") ? Math.max(1, band.extent) : 0
+        implicitHeight: (band.edge === "top" || band.edge === "bottom") ? Math.max(1, band.extent) : 0
     }
 
     Variants {
