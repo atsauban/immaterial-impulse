@@ -23,21 +23,13 @@ Scope {
         id: cornerPanelWindow
         property var brightnessMonitor: Brightness.getMonitorForScreen(screen)
         property bool fullscreen
-        // Frame mode needs its four inner fillets whatever the fake-rounding
-        // setting says; outside it the setting rules as before.
+        // A monitor has a black bezel with a rounded corner, and these are
+        // it. Frame mode wants them whatever the fake-rounding setting says -
+        // the frame's border runs INTO the bezel's curve, so the curve has to
+        // be there - and outside frame mode the setting rules as before.
         visible: FrameGeometry.enabled ? !fullscreen
             : (Config.options.appearance.fakeScreenRounding === 1 || (Config.options.appearance.fakeScreenRounding === 2 && !fullscreen))
         property var corner
-        // Where this fillet sits in frame mode: at the frame's inner corner,
-        // where the bar (or band) meets the side band - the band, on the
-        // dock's edge too. FrameGeometry owns the arithmetic; nothing here
-        // computes an inset.
-        readonly property string cornerName: cornerWidget.isTopLeft ? "topLeft"
-            : cornerWidget.isTopRight ? "topRight"
-            : cornerWidget.isBottomLeft ? "bottomLeft" : "bottomRight"
-        readonly property var frameMargins: FrameGeometry.enabled
-            ? FrameGeometry.cornerMargins(cornerPanelWindow.cornerName)
-            : ({ left: 0, top: 0, right: 0, bottom: 0 })
 
         exclusionMode: ExclusionMode.Ignore
         mask: Region {
@@ -58,29 +50,24 @@ Scope {
             bottom: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.bottom) * -1
         }
 
-        // The window stays at the screen corner (the sidebar corner-open hit
-        // rect lives at the true corner); in frame mode the fillet SHAPE
-        // moves inward by the frame's margins, and the window grows to hold it.
-        implicitWidth: cornerWidget.implicitWidth + cornerPanelWindow.frameMargins.left + cornerPanelWindow.frameMargins.right
-        implicitHeight: cornerWidget.implicitHeight + cornerPanelWindow.frameMargins.top + cornerPanelWindow.frameMargins.bottom
+        implicitWidth: cornerWidget.implicitWidth
+        implicitHeight: cornerWidget.implicitHeight
 
         RoundCorner {
             id: cornerWidget
             anchors.fill: parent
             corner: cornerPanelWindow.corner
-            // The frame's colour joins the fillet to the bar and the bands;
-            // the fake screen rounding stays black.
-            color: FrameGeometry.enabled ? FrameGeometry.color : "#000000"
-            leftVisualMargin: cornerPanelWindow.frameMargins.left
-            topVisualMargin: cornerPanelWindow.frameMargins.top
-            rightVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.right) * 1 + cornerPanelWindow.frameMargins.right
-            bottomVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.bottom) * 1 + cornerPanelWindow.frameMargins.bottom
+            // Black, in frame mode too: this is the bezel, not a piece of the
+            // shell's chrome. A frame-coloured fillet here belonged to the
+            // model where one edge of the frame was the bar's whole zone and
+            // the corner had something to round; it read as a blob two dozen
+            // pixels across hanging off each end of the bar.
+            color: "#000000"
+            rightVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.right) * 1
+            bottomVisualMargin: (Config.options.interactions.deadPixelWorkaround.enable && cornerPanelWindow.anchors.bottom) * 1
 
-            // In frame mode the fillet is concentric with the window corner it
-            // wraps (the authority's radius); otherwise the screen rounding.
-            implicitSize: FrameGeometry.enabled
-                ? Math.round(FrameGeometry.cornerRadius(cornerPanelWindow.cornerName))
-                : Appearance.rounding.screenRounding
+            // The bezel's radius, in both modes.
+            implicitSize: Appearance.rounding.screenRounding
             implicitHeight: Math.max(implicitSize, sidebarCornerOpenInteractionLoader.implicitHeight)
             implicitWidth: Math.max(implicitSize, sidebarCornerOpenInteractionLoader.implicitWidth)
 

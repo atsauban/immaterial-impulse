@@ -1,8 +1,7 @@
 pragma Singleton
 import QtQuick
 import Quickshell
-import Quickshell.Io
-import Quickshell.Hyprland
+
 import qs.modules.common
 import "frame_geometry.js" as Geo
 
@@ -43,60 +42,27 @@ Singleton {
     // default) or floating a gap above it. Anything but "floating" is
     // attached, so a hand-edited value cannot leave the dock nowhere.
     readonly property bool dockAttached: String(Config.options.appearance.frame.dock ?? "attached") !== "floating"
+    // Where windows start on each edge, which is the frame's own reach: a
+    // covering bar's zone plus the compositor's gap on its edge, the band on
+    // the other three.
     readonly property var insets: Geo.edgeInsets(root.barEdge, root.barThickness, root.thickness, root.gap, root.barCovers)
-    // The window rounding the COMPOSITOR runs, asked when frame mode is on
-    // (at start, when it is switched on, and on every config reload while
-    // on), so a hypr/custom override is honoured; the shell's own option is
-    // the fallback until the answer arrives. Nothing is spawned while the
-    // mode is off.
-    property int liveRounding: -1
-    readonly property real windowRounding: root.liveRounding >= 0 ? root.liveRounding : Config.options.hyprland.decoration.rounding
-    readonly property real innerRadius: Geo.innerRadius(root.windowRounding)
-    // Per corner, clamped to what the frame is thick enough to round there.
-    function cornerRadius(corner) {
-        return Geo.innerRadius(root.windowRounding, Geo.cornerThickness(corner, root.insets));
-    }
     readonly property color color: Appearance.colors.colBarBackground
 
-    // Re-armed by dropping and raising a companion flag, never by writing
-    // `running` (an imperative write over a binding destroys it: the switch
-    // that "detached from the config and then lied about it").
-    property bool probeArmed: true
-    Process {
-        id: roundingProbe
-        command: ["hyprctl", "getoption", "decoration:rounding", "-j"]
-        running: root.enabled && root.probeArmed
-        stdout: StdioCollector {
-            onStreamFinished: {
-                try {
-                    const v = Number(JSON.parse(text).int);
-                    if (!isNaN(v)) root.liveRounding = v;
-                } catch (e) {
-                    // No answer (no Hyprland, an odd build): the option stays the source.
-                }
-            }
-        }
-    }
-    Connections {
-        target: Hyprland
-        function onRawEvent(event) {
-            if (event.name !== "configreloaded" || !root.enabled) return;
-            root.probeArmed = false;
-            root.probeArmed = true;
-        }
-    }
+    // No rounding probe any more, and no fillet to size with it: the frame's
+    // corners are the SCREEN's corners, which ScreenCorners draws in black as
+    // a monitor's bezel, in frame mode and out of it. The probe existed only
+    // to size a frame-coloured fillet at an inner corner, and the inner
+    // corner went with the model that made one edge thick.
 
     // The readers. One frame for every screen, so neither takes a screen:
     // an earlier cut framed a pinned dock per screen (its zone drops on a
     // fullscreen monitor) and the per-screen plumbing went with the dock.
-    function cornerMargins(corner) {
-        return Geo.cornerMargins(corner, root.insets);
-    }
     function bandMargins(edge) {
-        return Geo.bandMargins(edge, root.barEdge, root.barThickness, root.thickness, root.gap, root.barCovers);
+        return Geo.bandMargins(edge, root.barEdge, root.thickness, root.gap, root.barCovers);
     }
-    // The band's thickness on its own edge: the gap under a covering bar's
-    // plate, the configured thickness everywhere else.
+    // The band's thickness on its own edge: nothing on a covering bar's edge
+    // (the bar's plate is the border there), the configured thickness
+    // everywhere else.
     function bandExtent(edge) {
         return Geo.bandExtent(edge, root.barEdge, root.thickness, root.gap, root.barCovers);
     }

@@ -30,7 +30,8 @@ Scope {
         // thickness of 0 paints the band transparent instead. The surface
         // reserves nothing and takes no input, so a transparent band costs
         // nothing (namespace rule in hypr/hyprland/rules.lua: no_anim).
-        readonly property bool painted: !band.hidden && FrameGeometry.thickness > 0
+        // Nothing to paint where the bar's own plate is the border.
+        readonly property bool painted: !band.hidden && band.extent > 0
         visible: FrameGeometry.enabled
         exclusionMode: ExclusionMode.Ignore
         WlrLayershell.namespace: "quickshell:frame"
@@ -78,8 +79,8 @@ Scope {
             left: band.bandMargins.left
             right: band.bandMargins.right
         }
-        // Its own edge's thickness: the gap under a covering bar's plate, the
-        // configured thickness everywhere else.
+        // Its own edge's thickness: nothing on a covering bar's edge, where
+        // the bar's plate is the border, the configured thickness elsewhere.
         readonly property real extent: FrameGeometry.bandExtent(band.edge)
         implicitWidth: (band.edge === "left" || band.edge === "right") ? Math.max(1, band.extent) : 0
         implicitHeight: (band.edge === "top" || band.edge === "bottom") ? Math.max(1, band.extent) : 0

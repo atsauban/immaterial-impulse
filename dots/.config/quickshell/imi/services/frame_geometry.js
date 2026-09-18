@@ -34,13 +34,14 @@ function bandThickness(configured, gapsOut) {
     return c > 0 ? c : 1;
 }
 
-// The band's thickness ON its own edge: the gap the compositor leaves under a
-// covering bar's plate, the configured thickness everywhere else.
+// The band's thickness ON its own edge: NOTHING on a covering bar's edge,
+// because there the bar's own plate is the border - it is opaque, it reaches
+// both screen edges, and it is already the thickest thing on that side. A
+// band under it made the frame fifty pixels thick on one edge and one pixel
+// on the other three, which is not a border, and the fillet that tried to
+// round that junction was the blob at each end of the bar.
 function bandExtent(edge, barEdge, band, gapsOut, barCovers) {
-    if (barCovers && edge === barEdge) {
-        var g = Number(gapsOut) || 0;
-        return g > 0 ? g : band;
-    }
+    if (barCovers && edge === barEdge) return 0;
     return Number(band) || 0;
 }
 
@@ -56,69 +57,32 @@ function bandExtent(edge, barEdge, band, gapsOut, barCovers) {
 function edgeInsets(barEdge, barThickness, band, gapsOut, barCovers) {
     var insets = { top: band, left: band, right: band, bottom: band };
     if (barCovers && barEdge in insets)
-        insets[barEdge] = (Number(barThickness) || 0)
-            + bandExtent(barEdge, barEdge, band, gapsOut, barCovers);
+        insets[barEdge] = (Number(barThickness) || 0) + (Number(gapsOut) || 0);
     return insets;
 }
 
-// The inner fillet's radius: the compositor's window rounding, but never
-// more than the frame is THICK at that corner. The fillet rounds the inner
-// corner of a thick edge - a covering bar's - and its box sits at the inset,
-// so its arc is concentric with the window's corner only when the radii are
-// equal (adding the band here, as an early version did, drove the arc into
-// the window). On a hairline border there is no thick edge to round, and the
-// full window rounding drew a filled quarter-disc two dozen pixels across in
-// each corner: a blob the bar's floating islands ran into, reported as
-// "stuck to the frame". Two thin bands already meet at a corner, so clamped
-// to nothing there is exactly right.
-function innerRadius(windowRounding, cornerThickness) {
-    var r = Math.max(0, (Number(windowRounding) || 0));
-    if (cornerThickness === undefined) return r;
-    return Math.min(r, Math.max(0, Number(cornerThickness) || 0));
-}
+// There is no inner fillet any more, and no reader of the compositor's window
+// rounding here. The frame's corners are the SCREEN's corners: a monitor has
+// a black bezel with a radius, ScreenCorners has always drawn that bezel in
+// black outside frame mode, and the frame's border simply runs into it. A
+// frame-coloured fillet at an inner corner only ever made sense while one
+// edge was thick enough to round, which is the model this file just left.
 
-// How thick the frame is at a corner: the thicker of the two edges that meet
-// there, which is what the fillet has room to round.
-function cornerThickness(corner, insets) {
-    var m = cornerMargins(corner, insets);
-    return Math.max(m.left + m.right, m.top + m.bottom);
-}
-
-// Where a band starts on its OWN edge: under a covering bar's plate on the
-// bar's edge, at the screen edge everywhere else - a floating bar's edge
-// included, so the border runs along the screen and the bar floats inside it.
-function bandStart(edge, barEdge, barThickness, barCovers) {
-    return (barCovers && edge === barEdge) ? (Number(barThickness) || 0) : 0;
-}
-
-// A band's four margins. The two horizontal bands span the screen's width;
-// the two side bands run between them, from the top band's inner edge to the
-// bottom band's - so no two bands overlap. Bands anchored the full screen
-// length crossed at the corners, and the frame's colour is translucent: each
-// crossing was a band-square painted twice, darker than the rest of the
-// frame. The two horizontal bands can differ in thickness (a covering bar's
-// edge is the gap), so each end is asked for its own edge.
-function bandMargins(edge, barEdge, barThickness, band, gapsOut, barCovers) {
+// A band's four margins. Every band is AT its screen edge; the two horizontal
+// ones span the width and the two side ones run between them, from the top
+// band's inner edge to the bottom band's, so no two bands overlap. Bands
+// anchored the full screen length crossed at the corners, and the frame's
+// colour is translucent: each crossing was a band-square painted twice,
+// darker than the rest of the frame. A covering bar's edge has no band at
+// all, so the side bands run to the screen edge there and the bar's own plate
+// is the border across the top.
+function bandMargins(edge, barEdge, band, gapsOut, barCovers) {
     var m = { top: 0, bottom: 0, left: 0, right: 0 };
     if (edge === "left" || edge === "right") {
-        m.top = bandStart("top", barEdge, barThickness, barCovers)
-            + bandExtent("top", barEdge, band, gapsOut, barCovers);
-        m.bottom = bandStart("bottom", barEdge, barThickness, barCovers)
-            + bandExtent("bottom", barEdge, band, gapsOut, barCovers);
-    } else {
-        m[edge] = bandStart(edge, barEdge, barThickness, barCovers);
+        m.top = bandExtent("top", barEdge, band, gapsOut, barCovers);
+        m.bottom = bandExtent("bottom", barEdge, band, gapsOut, barCovers);
     }
     return m;
 }
 
-// A fillet's offset from its screen corner: it sits at the frame's inner
-// corner, where the two edges' insets meet.
-function cornerMargins(corner, insets) {
-    switch (corner) {
-    case "topLeft": return { left: insets.left, top: insets.top, right: 0, bottom: 0 };
-    case "topRight": return { left: 0, top: insets.top, right: insets.right, bottom: 0 };
-    case "bottomLeft": return { left: insets.left, top: 0, right: 0, bottom: insets.bottom };
-    case "bottomRight": return { left: 0, top: 0, right: insets.right, bottom: insets.bottom };
-    default: return { left: 0, top: 0, right: 0, bottom: 0 };
-    }
-}
+
