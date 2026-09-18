@@ -29,12 +29,21 @@ Singleton {
     // modelled - one frame, the bar assumed present at its full zone on
     // every screen.
     readonly property real barThickness: Appearance.sizes.barExclusiveZone
-    readonly property real thickness: Geo.bandThickness(Config.options.appearance.frame.thickness, Config.options.hyprland.general.gapsOut)
+    // Whether the bar's plate covers its strip edge to edge, which is what
+    // makes the bar part of the frame rather than something floating inside
+    // it. Hug (cornerStyle 0) with a painted background, and only it: Float
+    // and Float Islands inset their plates by the gap, Islands and M3 paint
+    // no strip at all. One expression, here, rather than a second copy of
+    // BarContent's `backgroundPainted` - the authority owns the question.
+    readonly property bool barCovers: (Config.options.bar.cornerStyle ?? 0) === 0
+        && (Config.options.bar.showBackground ?? true)
+    readonly property real gap: Appearance.sizes.hyprlandGapsOut
+    readonly property real thickness: Geo.bandThickness(Config.options.appearance.frame.thickness)
     // How a pinned dock meets the band on its edge: on it (a tab, the
     // default) or floating a gap above it. Anything but "floating" is
     // attached, so a hand-edited value cannot leave the dock nowhere.
     readonly property bool dockAttached: String(Config.options.appearance.frame.dock ?? "attached") !== "floating"
-    readonly property var insets: Geo.edgeInsets(root.barEdge, root.barThickness, root.thickness)
+    readonly property var insets: Geo.edgeInsets(root.barEdge, root.barThickness, root.thickness, root.gap, root.barCovers)
     // The window rounding the COMPOSITOR runs, asked when frame mode is on
     // (at start, when it is switched on, and on every config reload while
     // on), so a hypr/custom override is honoured; the shell's own option is
@@ -79,6 +88,11 @@ Singleton {
         return Geo.cornerMargins(corner, root.insets);
     }
     function bandMargins(edge) {
-        return Geo.bandMargins(edge, root.barEdge, root.barThickness, root.thickness);
+        return Geo.bandMargins(edge, root.barEdge, root.barThickness, root.thickness, root.gap, root.barCovers);
+    }
+    // The band's thickness on its own edge: the gap under a covering bar's
+    // plate, the configured thickness everywhere else.
+    function bandExtent(edge) {
+        return Geo.bandExtent(edge, root.barEdge, root.thickness, root.gap, root.barCovers);
     }
 }
