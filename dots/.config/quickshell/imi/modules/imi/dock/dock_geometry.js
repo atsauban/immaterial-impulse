@@ -238,9 +238,18 @@ function splitRoom(gapsOut, elevationMargin) {
 // The pill's margin pair with a lift applied: outward grows by the lift,
 // inward shrinks by it (and carries the room), so the sum is the box's
 // thickness whatever the scalar says. `rest` is `margins()`'s answer.
-function liftedMargins(edge, rest, room, lift) {
+//
+// `press` is the water (`splitPress`): a squash takes it off the INWARD side,
+// so the pill flattens against the band it is resting on rather than sinking
+// through it, and a stretch adds to the inward side, so the drop elongates
+// toward the surface it is leaving. Either way the outward side - where the
+// pill meets the band - stays put, which is what keeps the neck's field and
+// the pill's own edge agreeing about where the join is.
+function liftedMargins(edge, rest, room, lift, press) {
     var e = normalizedEdge(edge);
-    var inward = (Number(rest[inwardSide(e)]) || 0) + (Number(room) || 0) - (Number(lift) || 0);
+    var p = Number(press) || 0;
+    var inward = (Number(rest[inwardSide(e)]) || 0) + (Number(room) || 0) - (Number(lift) || 0)
+        + Math.max(0, -p) - Math.max(0, p);
     var outward = (Number(rest[outwardSide(e)]) || 0) + (Number(lift) || 0);
     return directedSides(e, inward, outward);
 }
@@ -352,6 +361,25 @@ function splitDuration(base, floor, from, to) {
 // passes 2g, and the gap at the seam is half the lift, so four lifts keeps
 // the full waist bridged to the seam with room for the flanks.
 var BLEND_LIFTS = 4;
+// WATER (motion-split.md §4). The spring's scalar is 0 fused, 1 apart, and
+// it overshoots both ends; what lies outside [0, 1] is the liquid.
+//
+// Below 0 the drop has flattened INTO the surface: there is no lift to give,
+// so the excursion becomes a squash across the pill's thickness. Above 1 it
+// is still pulling away from a surface that has not let go: a stretch. Both
+// are a FRACTION of the excursion, not the whole of it - a pill squashed by
+// the spring's full first undershoot lost a third of its thickness, which
+// reads as a dropped frame rather than water.
+var PRESS_SHARE = 0.55;
+// Where surface tension goes, as a share of the travel: the neck bridges the
+// gap up to here and is gone past it. The event the eye reads is this
+// distance, not a time, which is why nothing below takes a progress.
+var PINCH_SHARE = 0.55;
+// The meniscus: the blend the field keeps while the pill is AT REST on the
+// band, so the tab's sides flare into it instead of meeting it at a right
+// angle. Water never makes that angle, and a square join was the first thing
+// a user called out about the attached look.
+var MENISCUS = 7;
 // The field's coverage ramp, in pixels either side of the outline: a
 // Rectangle's own antialiasing is about a pixel wide, and the hand-over
 // between the two must not change the edge.
@@ -362,6 +390,73 @@ function neckBlend(travel, apart, seam) {
     var sm = Math.max(0.001, Number(seam) || 0);
     var rise = Math.max(0, Math.min(1, (Number(apart) || 0) / sm));
     return BLEND_LIFTS * t * rise;
+}
+
+// --- water -----------------------------------------------------------------
+
+// The pill's lift, in pixels, from the spring's scalar: the travel it has
+// covered, and never less than nothing (the surface is where the lift stops;
+// the rest of an undershoot is `splitPress` below).
+function splitLift(travel, progress) {
+    var t = Number(travel) || 0;
+    return Math.max(0, t * (Number(progress) || 0));
+}
+
+// The press: what the spring asked for beyond either end, as pixels across
+// the pill's thickness. NEGATIVE squashes (the drop flattened into the
+// surface), POSITIVE stretches (it is still pulling away). Zero in between,
+// which is all of a gesture that does not overshoot.
+function splitPress(travel, progress) {
+    var t = Number(travel) || 0;
+    var p = Number(progress) || 0;
+    if (t <= 0) return 0;
+    if (p < 0) return -PRESS_SHARE * t * -p;
+    if (p > 1) return PRESS_SHARE * t * (p - 1);
+    return 0;
+}
+
+// Where surface tension goes: the gap, in pixels, at which the neck lets go.
+function pinchGap(travel) {
+    return PINCH_SHARE * (Number(travel) || 0);
+}
+
+// The neck's waist at a GAP: the pill's whole width while they are fused,
+// thinning as the gap opens and gone at the pinch. Cubed, so the bridge
+// holds nearly its width through most of the stretch and then goes quickly -
+// which is what surface tension looks like, and what makes the break an
+// event rather than a fade.
+function neckWaistAtGap(width, gap, pinch) {
+    var w = Number(width) || 0;
+    var pn = Number(pinch) || 0;
+    if (w <= 0 || pn <= 0) return 0;
+    var u = Math.max(0, Math.min(1, (Number(gap) || 0) / pn));
+    return w * (1 - u * u * u);
+}
+
+// The blend radius at a GAP: enough to bridge it (a polynomial
+// smooth-minimum needs about twice the gap), plus the meniscus it keeps at
+// rest, and nothing at all past the pinch.
+function neckBlendAtGap(gap, pinch, meniscus) {
+    var g = Math.max(0, Number(gap) || 0);
+    var pn = Number(pinch) || 0;
+    var rest = meniscus === undefined ? MENISCUS : (Number(meniscus) || 0);
+    if (pn <= 0) return 0;
+    if (g > pn) return 0;
+    return rest + BLEND_LIFTS * g;
+}
+
+// How round the pill's outward corners are at a GAP: square while anything
+// still bridges them, rounding over what is left of the travel once the neck
+// has gone. A corner that rounds while the neck is still attached rounds
+// against a fillet the blend is already drawing.
+function cornerRoundAtGap(gap, pinch, travel) {
+    var t = Number(travel) || 0;
+    var pn = Number(pinch) || 0;
+    var g = Math.max(0, Number(gap) || 0);
+    if (t <= 0) return 1;
+    if (g <= pn) return 0;
+    if (t <= pn) return 1;
+    return Math.max(0, Math.min(1, (g - pn) / (t - pn)));
 }
 
 // How far the pill's FIELD reaches into the band: FIELD_REACH less the

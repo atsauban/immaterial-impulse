@@ -731,10 +731,43 @@ Singleton {
         // scalar, so a 5 px lift and a 100 px one take the same shape.
         readonly property real splitSeam: 0.5
         readonly property real splitNeckReach: 0.8
+        // The split is WATER, not a pair of eased halves: a drop meeting a
+        // pond, and leaving it (docs/proposals/motion-split.md §4). One
+        // spring carries the whole gesture, and its overshoot is the liquid:
+        // past the far end the drop is still pulling away and STRETCHES, past
+        // the near end it has flattened INTO the surface and squashes, and
+        // the ripple back is the surface settling. A spring rather than a
+        // curve because the event the eye reads - the moment surface tension
+        // goes - is not a time, it is a distance: the neck pinches at a gap
+        // (dock_geometry.js), and a spring re-targeted mid-gesture carries
+        // its own velocity through, where a curve restarts from a standstill.
+        // Stiffness scales as 1/multiplier^2: a spring's period goes as
+        // sqrt(mass/spring), so that is what makes the Motion slider a speed.
+        readonly property real splitSpring: 3.2
+        readonly property real splitDamping: 0.16
+        readonly property real splitMass: 0.9
         property QtObject split: QtObject {
             property int duration: motion.scale(animationCurves.splitDuration)
             property int type: Easing.BezierSpline
             property list<real> bezierCurve: animationCurves.split
+            // The water spring. `mass` and `damping` are the shape of the
+            // ripple and do not scale; the stiffness carries the speed.
+            readonly property real spring: motion.splitSpring
+                / Math.max(0.04, motion.multiplier * motion.multiplier)
+            readonly property real damping: motion.splitDamping
+            readonly property real mass: motion.splitMass
+            readonly property real epsilon: 0.004
+            // The whole tier, so a call site takes it whole. Under reduce
+            // motion a spring is exactly the wrong thing to hand someone who
+            // asked for less movement, so the tier answers with the floor.
+            property Component springAnimation: Component {
+                SpringAnimation {
+                    spring: root.animation.split.spring
+                    damping: root.animation.split.damping
+                    mass: root.animation.split.mass
+                    epsilon: root.animation.split.epsilon
+                }
+            }
             property Component numberAnimation: Component {
                 NumberAnimation {
                     duration: root.animation.split.duration
