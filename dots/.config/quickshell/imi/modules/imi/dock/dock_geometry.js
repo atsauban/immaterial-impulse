@@ -379,7 +379,15 @@ var PINCH_SHARE = 0.55;
 // band, so the tab's sides flare into it instead of meeting it at a right
 // angle. Water never makes that angle, and a square join was the first thing
 // a user called out about the attached look.
-var MENISCUS = 7;
+var MENISCUS = 25;
+// How wide the blend's taper is, as a multiple of the pill's length. The
+// taper exists so a stretching neck narrows to a bridge at the middle - but
+// the blend it scales is ALSO the meniscus at rest, and a taper the pill's
+// own width puts the flare where the two are already fused and NOTHING at
+// the pill's ends, which is the only place a flare can be seen. Wider than
+// the pill at rest, narrower than it by the pinch: the flare is flat across
+// the base while fused, and a bridge by the time it lets go.
+var WAIST_REST = 2.5;
 // The field's coverage ramp, in pixels either side of the outline: a
 // Rectangle's own antialiasing is about a pixel wide, and the hand-over
 // between the two must not change the edge.
@@ -430,7 +438,7 @@ function neckWaistAtGap(width, gap, pinch) {
     var pn = Number(pinch) || 0;
     if (w <= 0 || pn <= 0) return 0;
     var u = Math.max(0, Math.min(1, (Number(gap) || 0) / pn));
-    return w * (1 - u * u * u);
+    return w * WAIST_REST * (1 - u);
 }
 
 // The blend radius at a GAP: enough to bridge it (a polynomial
