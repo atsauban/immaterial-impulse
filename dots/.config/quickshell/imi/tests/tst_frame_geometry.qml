@@ -6,14 +6,18 @@ import "../services/frame_geometry.js" as Geo
 TestCase {
     name: "FrameGeometry"
 
-    function test_band_thickness_is_a_hairline_at_zero() {
+    function test_band_thickness_is_a_hairline_at_zero_and_never_thinner_than_draws() {
         // 0 used to mean the gap, and a user read it as "thinnest" and got a
-        // five-pixel ledge under a floating bar.
-        compare(Geo.bandThickness(0), 1);
+        // five-pixel ledge under a floating bar. The floor is two pixels
+        // because a one-pixel layer surface draws nothing at all here
+        // (measured with the band tinted red), which is what made an attached
+        // dock look like it sat a pixel above the screen's edge.
+        compare(Geo.bandThickness(0), 2);
+        compare(Geo.bandThickness(1), 2);
         compare(Geo.bandThickness(12), 12);
         compare(Geo.bandThickness("8"), 8);
-        compare(Geo.bandThickness(null), 1);
-        compare(Geo.bandThickness(-4), 1);
+        compare(Geo.bandThickness(null), 2);
+        compare(Geo.bandThickness(-4), 2);
     }
 
     function test_a_covering_bars_edge_has_no_band() {

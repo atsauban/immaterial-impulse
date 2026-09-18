@@ -23,15 +23,19 @@
 // dock meets it on the dock's own terms (dock_geometry.js `frameOffset`):
 // sitting on the band as a tab, or floating a gap above it.
 
-// The band's thickness: the configured pixels, or a hairline when 0. The gap
-// was 0's meaning until a user read 0 as "thinnest" and got the gap's five
-// pixels, which on a floating bar is a visible ledge. The gap is still what
-// the bar's edge needs when the bar covers its strip (`bandExtent`), because
-// there the band has to reach from the plate to the windows; nothing else has
-// to reach anything.
-function bandThickness(configured, gapsOut) {
+// The thinnest band that actually draws. A one-pixel layer surface renders
+// NOTHING here - measured, twice, with the band tinted red: at two pixels the
+// rows are the band's colour, at one the wallpaper, while `hyprctl layers`
+// reports the surface at both. It is what made an attached dock look like it
+// sat a pixel above the screen's edge: the band it rests on was invisible.
+var HAIRLINE = 2;
+
+// The band's thickness: the configured pixels, never thinner than draws. The
+// gap was 0's meaning until a user read 0 as "thinnest" and got the gap's
+// five pixels, which on a floating bar is a visible ledge.
+function bandThickness(configured) {
     var c = Number(configured) || 0;
-    return c > 0 ? c : 1;
+    return Math.max(HAIRLINE, c);
 }
 
 // The band's thickness ON its own edge: NOTHING on a covering bar's edge,
