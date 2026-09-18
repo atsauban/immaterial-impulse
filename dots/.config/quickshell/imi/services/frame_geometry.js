@@ -61,12 +61,27 @@ function edgeInsets(barEdge, barThickness, band, gapsOut, barCovers) {
     return insets;
 }
 
-// The inner fillet's radius: the compositor's window rounding, full stop.
-// The fillet's box already sits at the inset, so its arc is concentric
-// with the window's corner only when the radii are equal; adding the band
-// here (an earlier version did) drove the arc into the window.
-function innerRadius(windowRounding) {
-    return Math.max(0, (Number(windowRounding) || 0));
+// The inner fillet's radius: the compositor's window rounding, but never
+// more than the frame is THICK at that corner. The fillet rounds the inner
+// corner of a thick edge - a covering bar's - and its box sits at the inset,
+// so its arc is concentric with the window's corner only when the radii are
+// equal (adding the band here, as an early version did, drove the arc into
+// the window). On a hairline border there is no thick edge to round, and the
+// full window rounding drew a filled quarter-disc two dozen pixels across in
+// each corner: a blob the bar's floating islands ran into, reported as
+// "stuck to the frame". Two thin bands already meet at a corner, so clamped
+// to nothing there is exactly right.
+function innerRadius(windowRounding, cornerThickness) {
+    var r = Math.max(0, (Number(windowRounding) || 0));
+    if (cornerThickness === undefined) return r;
+    return Math.min(r, Math.max(0, Number(cornerThickness) || 0));
+}
+
+// How thick the frame is at a corner: the thicker of the two edges that meet
+// there, which is what the fillet has room to round.
+function cornerThickness(corner, insets) {
+    var m = cornerMargins(corner, insets);
+    return Math.max(m.left + m.right, m.top + m.bottom);
 }
 
 // Where a band starts on its OWN edge: under a covering bar's plate on the

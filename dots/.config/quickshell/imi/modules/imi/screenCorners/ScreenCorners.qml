@@ -32,8 +32,11 @@ Scope {
         // where the bar (or band) meets the side band - the band, on the
         // dock's edge too. FrameGeometry owns the arithmetic; nothing here
         // computes an inset.
+        readonly property string cornerName: cornerWidget.isTopLeft ? "topLeft"
+            : cornerWidget.isTopRight ? "topRight"
+            : cornerWidget.isBottomLeft ? "bottomLeft" : "bottomRight"
         readonly property var frameMargins: FrameGeometry.enabled
-            ? FrameGeometry.cornerMargins(cornerWidget.isTopLeft ? "topLeft" : cornerWidget.isTopRight ? "topRight" : cornerWidget.isBottomLeft ? "bottomLeft" : "bottomRight")
+            ? FrameGeometry.cornerMargins(cornerPanelWindow.cornerName)
             : ({ left: 0, top: 0, right: 0, bottom: 0 })
 
         exclusionMode: ExclusionMode.Ignore
@@ -75,7 +78,9 @@ Scope {
 
             // In frame mode the fillet is concentric with the window corner it
             // wraps (the authority's radius); otherwise the screen rounding.
-            implicitSize: FrameGeometry.enabled ? Math.round(FrameGeometry.innerRadius) : Appearance.rounding.screenRounding
+            implicitSize: FrameGeometry.enabled
+                ? Math.round(FrameGeometry.cornerRadius(cornerPanelWindow.cornerName))
+                : Appearance.rounding.screenRounding
             implicitHeight: Math.max(implicitSize, sidebarCornerOpenInteractionLoader.implicitHeight)
             implicitWidth: Math.max(implicitSize, sidebarCornerOpenInteractionLoader.implicitWidth)
 

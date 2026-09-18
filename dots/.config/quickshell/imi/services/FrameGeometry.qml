@@ -50,7 +50,12 @@ Singleton {
     // the fallback until the answer arrives. Nothing is spawned while the
     // mode is off.
     property int liveRounding: -1
-    readonly property real innerRadius: Geo.innerRadius(root.liveRounding >= 0 ? root.liveRounding : Config.options.hyprland.decoration.rounding)
+    readonly property real windowRounding: root.liveRounding >= 0 ? root.liveRounding : Config.options.hyprland.decoration.rounding
+    readonly property real innerRadius: Geo.innerRadius(root.windowRounding)
+    // Per corner, clamped to what the frame is thick enough to round there.
+    function cornerRadius(corner) {
+        return Geo.innerRadius(root.windowRounding, Geo.cornerThickness(corner, root.insets));
+    }
     readonly property color color: Appearance.colors.colBarBackground
 
     // Re-armed by dropping and raising a companion flag, never by writing
