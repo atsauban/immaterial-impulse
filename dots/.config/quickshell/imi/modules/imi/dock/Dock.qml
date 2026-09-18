@@ -109,97 +109,28 @@ Scope {
             readonly property bool attached: DockReservation.attached && !fullscreenOnThisMonitor
                 && (dockRoot.reserves || DockReservation.frameOffset === 0)
 
-            // The attached <-> floating switch is the split
-            // (docs/proposals/motion-split.md §6): the band is the island
-            // and the pill is the child, attached is the joined state, and
-            // the pill is the one body that travels. ONE scalar per
-            // direction - 0 fused, 1 apart - on the split tier taken whole,
-            // whose curve accelerates into the seam (0.5) and decelerates
-            // out of it. Every other piece of the motion below (the lift,
-            // the corners, the neck, the look, the zone) is a function of
-            // this number, never a second animation that has to agree with
-            // it. Driven by the CONFIGURED choice (`splitTarget`): the
-            // fullscreen term in `attached` is a state the user never
-            // toggled, and following it replayed a landing on every
-            // fullscreen exit.
-            //
-            // The pause is the reference's sequencing: effects and space
-            // never overlap. On a LANDING from rest (target 0, the pill
-            // fully apart) the look lands first - the tab's colour, no
-            // border, on the effects tier - and only then does the outline
-            // move; on a lift there is nothing to wait for, since the look
-            // changes after the pill has landed apart (attachedLook below),
-            // and neither is there on a lift reversed mid-flight, whose look
-            // is still the tab's - a pause there parked the pill in the air.
-            // Read off the Behavior's own target, which is set before the
-            // animation starts, and the scalar's live value, rather than off
-            // a binding that may not have re-evaluated yet. The tier is
-            // written out rather than taken from its factory because the
-            // pause is direction-dependent and a factory cannot carry one;
-            // the three properties are the tier's, whole.
+            // The attached <-> floating switch is a FRAME JOIN
+            // (modules/common/widgets/FrameJoin.qml): the band is the
+            // surface, the pill is what joins it, and the join owns the
+            // physics - the elastic pull, the neck that thins and lets go,
+            // the squash and the stretch. Everything below is read OFF it.
+            // Nothing here sequences anything: what the eye reads as the
+            // break is the neck's own state, not a timer.
             //
             // The target is the frame option and the PIN: pinning a floating
-            // dock is a lift off the band (the travel appears, and the scalar
-            // is at 0), not a jump to a lifted pill. Never `reserves`, which
-            // folds in the fullscreen term - a scalar on it replayed the lift
-            // on every fullscreen exit; fullscreen reaches the lift through
-            // the travel alone, while the dock is hidden.
-            readonly property real splitTarget: FrameGeometry.enabled && root.pinned && !DockReservation.attached ? 1 : 0
-            property real splitProgress: dockRoot.splitTarget
-            // Whether the lift under way began as the TAB. A pinned attached
-            // dock going floating splits: tab look until it has landed
-            // apart, a neck at the seam. A floating dock being pinned, or
-            // the frame switching on under a floating one, rises too - the
-            // travel appears - but nothing was fused: it rises as the pill
-            // it already is, no neck, corners round. Decided at the target's
-            // rising edge from what was on screen the TURN BEFORE: `attached`
-            // as it was before this turn's changes, held in `attachedBefore`
-            // and refreshed one turn late (Qt.callLater), so the edge's
-            // handler always reads last turn's value whatever order this
-            // turn's bindings re-evaluate in. Not from the look, whose own
-            // terms move on the same edge; not from "what changed", which a
-            // change between edges (unpin, flip the option, pin) escapes.
-            // Plain properties, never bindings a handler would destroy.
-            property bool liftFromTab: true
-            property bool attachedBefore: false
-            Component.onCompleted: dockRoot.attachedBefore = dockRoot.attached
-            onAttachedChanged: Qt.callLater(() => { dockRoot.attachedBefore = dockRoot.attached; })
-            onSplitTargetChanged: if (dockRoot.splitTarget === 1) dockRoot.liftFromTab = dockRoot.attachedBefore
-            // The water. One spring for the whole gesture, in both
-            // directions: it carries its own velocity through a reversal
-            // (where a curve restarts from a standstill and needed a
-            // proportional duration to look sane), and it overshoots, which
-            // is where the squash and the stretch come from (splitPress).
-            // Nothing here sequences the neck or the look - both are
-            // functions of the GAP, so the moment surface tension goes is a
-            // distance the eye can trust rather than a timer.
-            Behavior on splitProgress {
-                id: splitBehavior
-                // No lift, no spatial tier: an unpinned dock at the default
-                // band, or the frame switching off, changes its LOOK and
-                // that runs on the effects tier alone (lookApart below).
-                enabled: dockRoot.splitTravel > 0
-                // Reduce motion asked for less movement; a spring is the
-                // opposite of that, so the tier answers with the floor.
-                animation: Appearance.animation.reduceMotion
-                    ? Appearance.animation.elementMoveFast.numberAnimation.createObject(splitBehavior)
-                    : Appearance.animation.split.springAnimation.createObject(splitBehavior)
-            }
+            // dock is a lift off the band (the travel appears), not a jump to
+            // a lifted pill. Never `reserves`, which folds in the fullscreen
+            // term - following it replayed the lift on every fullscreen exit;
+            // fullscreen reaches the lift through the travel alone, while the
+            // dock is hidden.
+            readonly property bool joinAttached: !(FrameGeometry.enabled && root.pinned && !DockReservation.attached)
             // The lift: the compositor's gap - the distance between "on the
             // band" and "a gap above it" - while the dock reserves its edge.
             // An unpinned dock never lifts (its hover sliver stays at the
             // edge), so at the default band it takes the look change alone.
             readonly property real splitTravel: DockGeometry.splitTravel(FrameGeometry.enabled, dockRoot.reserves, Appearance.sizes.hyprlandGapsOut)
-            readonly property real splitLift: DockGeometry.splitLift(dockRoot.splitTravel, dockRoot.splitProgress)
-            // What the spring asked for past either end, as pixels across the
-            // pill: negative squashes it against the band, positive stretches
-            // it toward the band it is leaving.
-            readonly property real splitPress: DockGeometry.splitPress(dockRoot.splitTravel, dockRoot.splitProgress)
-            // The gap between the pill and the band, and the gap at which the
-            // neck lets go. Everything the eye reads as the break is keyed on
-            // these two, never on the scalar's time.
-            readonly property real splitGap: dockRoot.splitLift
-            readonly property real splitPinch: DockGeometry.pinchGap(dockRoot.splitTravel)
+            readonly property real splitLift: dockJoin.lift
+            readonly property real splitPress: dockJoin.press
             // The pill lifts into its own inward elevation margin; a gap bigger
             // than that margin grows the strip by the shortfall (nothing at
             // the defaults) so the lifted pill stays inside its surface.
@@ -209,27 +140,20 @@ Scope {
             // start of a lift and the end of a landing, so windows are never
             // against a floating pill and the compositor re-tiles twice per
             // gesture at most, on its own animation.
-            readonly property real splitZoneExtra: DockGeometry.splitZoneExtra(dockRoot.splitTravel, dockRoot.splitTarget === 1, dockRoot.splitProgress)
-            // The look is the tab's while something still bridges the gap:
-            // the colour and the border turn AT THE PINCH, the same distance
-            // the neck lets go at, in both directions - a drop is part of the
-            // pond until it is not. Before, a lift changed its look after the
-            // motion and a landing held it with a pause; both were timers
-            // standing in for the event. With no lift the look IS the switch:
-            // `attached` alone, on the effects tier, corners included,
-            // through a scalar of its own.
-            readonly property bool attachedLook: dockRoot.splitTravel > 0
-                ? (dockRoot.liftFromTab || dockRoot.splitTarget === 0
-                    ? dockRoot.splitGap <= dockRoot.splitPinch
-                    : dockRoot.attached)
-                : dockRoot.attached
+            readonly property real splitZoneExtra: DockGeometry.splitZoneExtra(dockRoot.splitTravel, !dockRoot.joinAttached, dockRoot.splitLift)
+            // The look is the tab's while anything still bridges the gap: the
+            // colour and the border turn when the neck lets go, in both
+            // directions - a drop is part of the pond until it is not. With no
+            // lift the look IS the switch, on the effects tier, through a
+            // scalar of its own.
+            readonly property bool attachedLook: dockRoot.splitTravel > 0 ? dockJoin.fused : dockRoot.attached
             property real lookApart: dockRoot.attached ? 0 : 1
             Behavior on lookApart {
                 // Read only while there is no lift; idle otherwise.
                 enabled: dockRoot.splitTravel <= 0
                 animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
-            readonly property real apart: dockRoot.splitTravel > 0 ? dockRoot.splitProgress : dockRoot.lookApart
+            readonly property real apart: dockRoot.splitTravel > 0 ? dockJoin.cornerRound : dockRoot.lookApart
             // The icons ride the pill: the strip is centred in the box and
             // the pill, lifted, is not.
             readonly property var liftOffset: DockGeometry.liftOffset(root.edge, dockRoot.splitRoom, dockRoot.splitLift)
@@ -382,73 +306,27 @@ Scope {
                         // seam and holds; the waist (`neckWaist`) is where it
                         // acts, tapering along the band so the neck narrows to
                         // nothing at the pinch - a flat edge over a flat band
-                        // is one distance everywhere, and a uniform blend lets
-                        // go all at once. Boxed, never anchored: the turn is a
-                        // size. While it paints, the pill's Rectangle does not
+                        // The join with the frame: the elastic pull, the
+                        // neck that thins and lets go, the squash and the
+                        // stretch, and the flare the pill keeps where it
+                        // rests. It owns the physics and draws the neck; the
+                        // pill below reads its numbers and positions itself.
+                        // While the join paints, the pill's Rectangle does not
                         // (`opacity`, no Behavior: the same silhouette in the
-                        // same colour at both hand-overs - square corners and
-                        // no blend at 0, round corners and no waist past the
-                        // pinch - and a translucent fill drawn twice is darker).
-                        ShaderEffect {
-                            id: splitNeck
-                            readonly property real pillAlong: root.vertical ? dockVisualBackground.height : dockVisualBackground.width
-                            // Both from the GAP: the bridge holds nearly its
-                            // width through the stretch and then goes, and the
-                            // blend is whatever bridges the gap plus the
-                            // meniscus it keeps at rest.
-                            readonly property real waist: DockGeometry.neckWaistAtGap(splitNeck.pillAlong, dockRoot.splitGap, dockRoot.splitPinch)
-                            readonly property real blend: DockGeometry.neckBlendAtGap(dockRoot.splitGap, dockRoot.splitPinch)
-                            // Laid out once for a motion from the rest margins,
-                            // so the item holds still while the scalar moves and
-                            // only the uniforms below change per frame.
-                            readonly property var box: DockGeometry.splitBox(root.edge,
-                                dockBackground.width, dockBackground.height,
-                                dockRoot.dockMargins, dockRoot.splitRoom, dockRoot.splitTravel)
-                            // Painted for a split (a lift that began as the tab)
-                            // and for every landing; a pill that was never fused
-                            // rises without one.
-                            // Only where a shader can draw: the software scene
-                            // graph draws no ShaderEffect, and a shader that
-                            // failed to load draws nothing - with the pill's
-                            // Rectangle handed over, either would leave the icons
-                            // over bare band for the neck's whole span. There the
-                            // pill lifts without a neck.
-                            readonly property bool fieldAvailable: splitNeck.GraphicsInfo.api !== GraphicsInfo.Software
-                                && splitNeck.status !== ShaderEffect.Error
-                            // Painted whenever anything bridges the pill and
-                            // the band - the meniscus at rest included, which
-                            // is the whole point of the flare - and not while
-                            // a pill that was never fused is rising.
-                            readonly property bool painting: splitNeck.fieldAvailable && Config.options.dock.showBackground
-                                && splitNeck.waist > 0 && dockRoot.splitGap <= dockRoot.splitPinch
-                                && (dockRoot.liftFromTab || dockRoot.splitTarget === 0)
-                            visible: painting
-                            x: box.x
-                            y: box.y
-                            width: box.width
-                            height: box.height
-                            // The field's inputs, in the box's own pixels.
-                            readonly property vector2d resolution: Qt.vector2d(width, height)
-                            readonly property color fillColor: FrameGeometry.color
-                            readonly property vector2d pillCenter: Qt.vector2d(
-                                dockVisualBackground.x - splitNeck.x + dockVisualBackground.width / 2,
-                                dockVisualBackground.y - splitNeck.y + dockVisualBackground.height / 2)
-                            readonly property vector2d pillSize: Qt.vector2d(dockVisualBackground.width, dockVisualBackground.height)
-                            // How far the pill's field reaches into the band: the
-                            // lift's first pixels, before the blend can bridge them.
-                            readonly property real reach: DockGeometry.fieldReach(dockRoot.splitLift)
-                            readonly property vector4d pillRadii: Qt.vector4d(
-                                dockVisualBackground.frameRadii.topLeft, dockVisualBackground.frameRadii.topRight,
-                                dockVisualBackground.frameRadii.bottomRight, dockVisualBackground.frameRadii.bottomLeft)
-                            readonly property vector2d bandNormal: Qt.vector2d(box.normal.x, box.normal.y)
-                            readonly property real bandOrigin: box.bandEdge * (box.normal.x + box.normal.y)
-                            readonly property real waistHalf: splitNeck.waist / 2
-                            readonly property real waistCenter: root.vertical ? splitNeck.pillCenter.y : splitNeck.pillCenter.x
-                            readonly property real softness: DockGeometry.BLEND_SOFTNESS
-                            // The WINDOW's ratio, which follows fractional scaling;
-                            // the screen's is the output's integer scale.
-                            readonly property real pixelRatio: dockRoot.devicePixelRatio
-                            fragmentShader: Qt.resolvedUrl("shaders/split.frag.qsb")
+                        // same colour, and a translucent fill drawn twice is
+                        // darker).
+                        FrameJoin {
+                            id: dockJoin
+                            anchors.fill: parent
+                            plate: dockVisualBackground
+                            edge: root.edge
+                            attached: dockRoot.joinAttached
+                            travel: dockRoot.splitTravel
+                            // The band is where the pill sits when it is
+                            // attached: its own rest outward margin.
+                            bandInset: DockGeometry.margins(root.edge,
+                                Appearance.sizes.elevationMargin, Appearance.sizes.hyprlandGapsOut)[DockGeometry.outwardSide(root.edge)]
+                            active: FrameGeometry.enabled && Config.options.dock.showBackground
                         }
 
                         Rectangle {
@@ -465,7 +343,7 @@ Scope {
                             anchors.bottomMargin: pillMargins.bottom
                             anchors.leftMargin:   pillMargins.left
                             anchors.rightMargin:  pillMargins.right
-                            opacity: splitNeck.painting ? 0 : 1
+                            opacity: dockJoin.drawsPlate ? 0 : 1
                             color: !Config.options.dock.showBackground ? "transparent"
                                    : dockRoot.attachedLook ? FrameGeometry.color : Appearance.colors.colLayer0
                             Behavior on color { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }
@@ -482,29 +360,12 @@ Scope {
                             // fillets and the bar plate's corners in frame mode,
                             // so the pill's radius is a design value, not a sum.
                             radius: Appearance.rounding.large
-                            // The outward pair rounds from the seam, where the
-                            // outlines part, to the pinch, with the neck that
-                            // exposes it: square while fused, a pill once apart.
-                            // With no neck - no lift, or no shader to draw one
-                            // (the software scene graph) - over the whole scalar:
-                            // keyed on a pinch that is never drawn, a square
-                            // corner hovered over a lit gap for half the lift.
-                            // With a neck, the span starts where the pill's ends
-                            // leave the band - the neck's blend is nothing at the
-                            // ends, so for a short lift that is before the seam -
-                            // and still ends at the pinch.
-                            // Square while the neck still bridges them,
-                            // rounding over what is left of the travel once it
-                            // has gone: from the GAP, like everything else the
-                            // break is made of. A pill that was never fused is
-                            // round throughout.
-                            readonly property bool necked: dockRoot.splitTravel > 0 && splitNeck.fieldAvailable
-                                && (dockRoot.liftFromTab || dockRoot.splitTarget === 0)
-                            readonly property real cornerRound: dockVisualBackground.necked
-                                ? DockGeometry.cornerRoundAtGap(dockRoot.splitGap, dockRoot.splitPinch, dockRoot.splitTravel)
-                                : (dockRoot.splitTravel > 0 ? 1 : dockRoot.apart)
+                            // Square where the pill is joined to the band,
+                            // round once the neck has let go: the join's own
+                            // number, so the corner and the neck can never
+                            // disagree about whether the two are one shape.
                             readonly property var frameRadii: DockGeometry.cornerRadiiAt(root.edge, radius,
-                                dockVisualBackground.cornerRound, 0, 1)
+                                dockRoot.apart, 0, 1)
                             topLeftRadius:     frameRadii.topLeft
                             topRightRadius:    frameRadii.topRight
                             bottomLeftRadius:  frameRadii.bottomLeft
