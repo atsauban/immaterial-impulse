@@ -47,6 +47,8 @@ layout(std140, binding = 0) uniform buf {
     float softness;
     float pixelRatio;
     float reach;
+    float bulge;
+    float bulgeHalf;
 };
 
 // A rounded box with a radius per corner: x top-left, y top-right,
@@ -80,6 +82,22 @@ float blendAt(vec2 p)
     return blend * max(0.0, 1.0 - u * u);
 }
 
+// How far the band's own surface is drawn toward the body leaving it, at a
+// point: a smooth hump centred under it. This is the half of the split the
+// band owns - two bodies part by BOTH being pulled out of shape, and a band
+// that stays a straight line while the pill does all the moving reads as
+// something peeling off a wall rather than one body becoming two.
+float bulgeAt(vec2 p)
+{
+    if (bulge <= 0.0 || bulgeHalf <= 0.0)
+        return 0.0;
+    float along = dot(p, abs(vec2(bandNormal.y, bandNormal.x)));
+    float u = (along - waistCenter) / bulgeHalf;
+    float fall = max(0.0, 1.0 - u * u);
+    // Squared, so the hump has shoulders rather than a tent's straight sides.
+    return bulge * fall * fall;
+}
+
 // The joined field at a point, in item pixels, for a given blend radius.
 float field(vec2 p, float k)
 {
@@ -93,7 +111,8 @@ float field(vec2 p, float k)
     // never reaches the gap side of the edge (it tinted the gap's last row
     // along the whole box while the field painted, and the row stepped back
     // at the hand-over); inside the band the band's own surface covers it.
-    float band = bandOrigin - dot(p, bandNormal) + softness;
+    // Less the bulge, which lifts that edge toward the departing body.
+    float band = bandOrigin - dot(p, bandNormal) - bulgeAt(p) + softness;
     return smoothMinimum(pill, band, k);
 }
 

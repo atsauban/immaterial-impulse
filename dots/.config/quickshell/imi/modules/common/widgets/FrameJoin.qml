@@ -124,7 +124,10 @@ Item {
         // plate keeps its own Rectangle and the join has no neck.
         readonly property bool fieldAvailable: neck.GraphicsInfo.api !== GraphicsInfo.Software
             && neck.status !== ShaderEffect.Error
-        readonly property bool painting: root.active && neck.fieldAvailable && root.fused && root.plate.visible
+        // Painted while anything still bridges the two, and while the band is
+        // still ringing back from having been pulled out of shape.
+        readonly property bool painting: root.active && neck.fieldAvailable && root.plate.visible
+            && (root.fused || neck.bulge > 0.1)
         visible: painting
 
         // The box: the plate, the room between it and the band, a couple of
@@ -132,6 +135,9 @@ Item {
         // and the meniscus' reach past the plate's ends along the band - a box
         // the plate's own length draws the flare where nothing is rasterised.
         readonly property real pad: root.meniscus + 2
+        // Room for the band's hump as well as the plate: the bulge rises out
+        // of the band toward the plate, and a box that stopped at the band's
+        // edge would clip it.
         readonly property real into: 2
         readonly property rect box: {
             const p = root.plate;
@@ -172,6 +178,11 @@ Item {
         readonly property real blend: Fluid.blend(root.state, root.meniscus, root.blendPerPixel)
         readonly property real waistHalf: Fluid.waist(root.state, root.plateAlong) / 2
         readonly property real waistCenter: root.vertical ? neck.pillCenter.y : neck.pillCenter.x
+        // How far the band's own surface is drawn toward the plate, and how
+        // wide that hump is along the band. The band's half of the split: it
+        // rises with the furrow and rings flat once the bridge lets go.
+        readonly property real bulge: Math.max(0, root.state.bulge)
+        readonly property real bulgeHalf: root.plateAlong * 0.4
         readonly property real softness: 0.75
         // How far the plate's field reaches into the band: the first pixels of
         // a lift, before the blend can bridge them.

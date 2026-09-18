@@ -28,10 +28,14 @@
 var K_POS = 110;
 var C_POS = 5;
 
-// Surface tension's pull toward the pond, at a full neck. Bigger than the
-// spring can manage across the travel, which is what makes a detachment have
-// to WAIT for the neck to thin rather than simply losing a tug of war.
-var TENSION = 1000;
+// The bridge's pull, per pixel of stretch, at full width. A RUBBER BAND, not
+// a clamp: it pulls harder the further the two are pulled apart and weaker as
+// the bridge thins, so the bodies separate WHILE the furrow deepens - which is
+// the whole thing the eye is watching. A constant pull instead pinned the gap
+// at zero until the bridge had already gone, and then the split was a jump
+// with nothing between the two (measured: the bridge was down to 0.06 by the
+// time the gap reached a single pixel, so there was never a visible neck).
+var TENSION = 90;
 
 // How fast a neck under stress thins, and how much faster a thin one goes.
 // The runaway is the whole character of the break: at a full neck this is
@@ -54,6 +58,26 @@ var C_SHAPE = 6;
 // pill through itself.
 var SHAPE_LIMIT = 5;
 
+// The FURROW. Two bodies do not part by one of them walking away: the shared
+// body elongates, a constriction forms and deepens, the waist pinches, and
+// both halves round up. The drag on each side is greatest when the bridge is
+// HALF gone - a thin bridge pulls hardest, a whole one is not yet pulling and
+// a severed one has let go - so everything the furrow drives is shaped like
+// `4 * bridge * (1 - bridge)`, which is nothing at either end and one in the
+// middle.
+//
+// `BULGE_GAIN` is how far, in pixels, the surface of the side that stays is
+// drawn toward the side that leaves. `SHAPE_FURROW` is how far the leaving
+// side elongates along the same axis while it is still attached.
+function furrow(bridge) {
+    var b = Math.max(0, Math.min(1, Number(bridge) || 0));
+    return 4 * b * (1 - b);
+}
+var BULGE_GAIN = 3.5;
+var K_BULGE = 350;
+var C_BULGE = 7;
+var SHAPE_FURROW = 2.2;
+
 // The longest step to integrate in one go. A frame that took longer (a
 // stall, a resume from sleep) is walked in pieces instead.
 var MAX_STEP = 1 / 90;
@@ -66,9 +90,11 @@ function rest(gap) {
     return {
         gap: g,            // px between the drop and the pond
         speed: 0,          // px/s, positive away from the pond
-        neck: g > 0 ? 0 : 1, // 0..1 of the drop's own width
+        neck: g > 0 ? 0 : 1, // 0..1 of the bridge between the two
         shape: 0,          // px: positive stretched along the travel, negative squashed
         shapeSpeed: 0,
+        bulge: 0,          // px the staying side is drawn toward the leaving one
+        bulgeSpeed: 0,
         settled: true
     };
 }
@@ -82,6 +108,8 @@ function isSettled(st, target) {
         && Math.abs(st.speed) < 1.5
         && Math.abs(st.shape) < 0.15
         && Math.abs(st.shapeSpeed) < 1.5
+        && Math.abs(st.bulge) < 0.15
+        && Math.abs(st.bulgeSpeed) < 1.5
         && (target > 0 ? st.neck <= 0 : st.neck >= 1);
 }
 
@@ -93,7 +121,8 @@ function step(st, target, dt) {
     var remaining = Math.max(0, Number(dt) || 0);
     var s = {
         gap: st.gap, speed: st.speed, neck: st.neck, shape: st.shape,
-        shapeSpeed: st.shapeSpeed, settled: false
+        shapeSpeed: st.shapeSpeed, bulge: st.bulge || 0,
+        bulgeSpeed: st.bulgeSpeed || 0, settled: false
     };
     while (remaining > 0) {
         var h = Math.min(MAX_STEP, remaining);
@@ -119,7 +148,7 @@ function step(st, target, dt) {
         // never came to rest, and every frame kicked the shape oscillator
         // through the floor clamp below.
         var pull = K_POS * (t - s.gap);
-        var tension = (pull > 0 || s.gap > 0) ? TENSION * s.neck : 0;
+        var tension = (pull > 0 || s.gap > 0) ? TENSION * s.neck * s.gap : 0;
         var accel = pull - C_POS * s.speed - tension;
         s.speed += accel * h;
         s.gap += s.speed * h;
@@ -131,13 +160,27 @@ function step(st, target, dt) {
             if (s.speed < 0) s.speed = 0;
         }
 
-        // The shape lags the motion: it wants to be as long as the drop is
-        // fast, and rings its way back when the drop stops.
-        var want = Math.max(-SHAPE_LIMIT, Math.min(SHAPE_LIMIT, s.speed * SHAPE_PER_SPEED));
+        // The furrow's drag, which both sides feel: the staying side's
+        // surface is pulled toward the leaving one, and the leaving one
+        // elongates along the same axis. Both peak when the bridge is half
+        // gone and are nothing at either end, so both round up after the cut -
+        // through their own springs, which is where the ring comes from.
+        var drag = furrow(s.neck);
+
+        // The shape lags the motion: it wants to be as long as the body is
+        // fast, plus what the furrow is stretching out of it, and rings its
+        // way back when both stop.
+        var want = Math.max(-SHAPE_LIMIT, Math.min(SHAPE_LIMIT,
+            s.speed * SHAPE_PER_SPEED + drag * SHAPE_FURROW));
         s.shapeSpeed += (K_SHAPE * (want - s.shape) - C_SHAPE * s.shapeSpeed) * h;
         s.shape += s.shapeSpeed * h;
         s.shape = Math.max(-SHAPE_LIMIT, Math.min(SHAPE_LIMIT, s.shape));
 
+        // The staying side's own surface, on its own spring: it rises with the
+        // furrow, and once the bridge lets go there is nothing holding it, so
+        // it rings flat again.
+        s.bulgeSpeed += (K_BULGE * (drag * BULGE_GAIN - s.bulge) - C_BULGE * s.bulgeSpeed) * h;
+        s.bulge += s.bulgeSpeed * h;
     }
     s.settled = isSettled(s, t);
     return s;

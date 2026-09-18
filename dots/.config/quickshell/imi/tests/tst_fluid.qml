@@ -20,32 +20,45 @@ TestCase {
         const guard = Math.round((guardSeconds ?? 4) / dt);
         for (let i = 0; i < guard; i++) {
             st = Fluid.step(st, target, dt);
-            frames.push({ t: (i + 1) * dt, gap: st.gap, neck: st.neck, shape: st.shape, speed: st.speed, settled: st.settled });
+            frames.push({ t: (i + 1) * dt, gap: st.gap, neck: st.neck, shape: st.shape,
+                          bulge: st.bulge, speed: st.speed, settled: st.settled });
             if (st.settled) break;
         }
         return frames;
     }
 
-    function test_a_detachment_holds_then_lets_go() {
+    function test_a_detachment_stretches_then_lets_go() {
         const trace = run(0, travel);
         verify(trace.length > 0);
-        // It holds: the neck is still most of itself, and the pill has barely
-        // moved, a tenth of a second in.
+        // The two separate WHILE the bridge is still there - that is the whole
+        // thing the eye is watching, and a pull that pinned the gap at zero
+        // until the bridge had gone made the split a jump with nothing between
+        // the two.
         const early = trace[Math.round(0.1 / dt) - 1];
-        verify(early.neck > 0.5, "a tenth of a second in the neck is still there: " + early.neck);
-        verify(early.gap < travel * 0.35, "and the pill has barely moved: " + early.gap);
-        // It lets go: the neck reaches nothing, and after it does the pill is
-        // moving away faster than it was while held.
+        verify(early.neck > 0.5, "a tenth of a second in the bridge is still most of itself: " + early.neck);
+        verify(early.gap > travel * 0.2, "and the two have already parted: " + early.gap);
+        // Both sides are pulled out of shape while it lasts: the leaving side
+        // elongates, the staying side is drawn after it.
+        let maxShape = 0, maxBulge = 0;
+        for (const f of trace) { maxShape = Math.max(maxShape, f.shape); maxBulge = Math.max(maxBulge, f.bulge); }
+        verify(maxShape > 1, "the leaving side elongates: " + maxShape);
+        verify(maxBulge > 1, "the staying side is drawn after it: " + maxBulge);
+        // It lets go: the bridge reaches nothing.
         let pinch = -1;
         for (let i = 0; i < trace.length; i++)
             if (trace[i].neck <= 0) { pinch = i; break; }
         verify(pinch > 0, "the neck lets go");
         verify(trace[pinch].t > 0.12, "not before it has had to thin: " + trace[pinch].t);
         verify(trace[pinch].t < 0.6, "and not so late it reads as a stall: " + trace[pinch].t);
-        // It rings: the pill goes past where it was asked to stop.
-        let peak = 0;
-        for (const f of trace) peak = Math.max(peak, f.gap);
-        verify(peak > travel * 1.1, "an overshoot worth seeing: " + peak);
+        // Both round up afterwards: the shapes ring through their rest values
+        // rather than easing to them.
+        let minShape = 0, minBulge = 0;
+        for (let i = pinch; i < trace.length; i++) {
+            minShape = Math.min(minShape, trace[i].shape);
+            minBulge = Math.min(minBulge, trace[i].bulge);
+        }
+        verify(minShape < -0.5, "the leaving side rounds up past its rest: " + minShape);
+        verify(minBulge < -0.5, "and so does the staying side: " + minBulge);
         // ...and it stops, near the target.
         const last = trace[trace.length - 1];
         verify(last.settled, "it settles");
@@ -78,7 +91,7 @@ TestCase {
         // return starts from where and how fast it was going.
         let st = Fluid.rest(0);
         st.neck = 1;
-        for (let i = 0; i < 20; i++) st = Fluid.step(st, travel, dt);
+        for (let i = 0; i < 8; i++) st = Fluid.step(st, travel, dt);
         const mid = { gap: st.gap, speed: st.speed };
         verify(mid.gap > 0, "it did move");
         const back = Fluid.step(st, 0, dt);
