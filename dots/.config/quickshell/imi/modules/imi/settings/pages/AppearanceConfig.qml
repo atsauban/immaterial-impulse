@@ -122,7 +122,7 @@ ContentPage {
                 ConfigSpinBox {
                     property bool rowVisible: Config.options.appearance.frame.enable
                     icon: "line_weight"
-                    text: Translation.tr("Band thickness (px, 0 = the outer gap)")
+                    text: Translation.tr("Band thickness (px, 0 = hairline)")
                     value: Config.options.appearance.frame.thickness
                     from: 0
                     to: 64
