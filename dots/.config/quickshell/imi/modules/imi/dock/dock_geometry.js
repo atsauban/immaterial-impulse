@@ -379,7 +379,11 @@ var PINCH_SHARE = 0.55;
 // band, so the tab's sides flare into it instead of meeting it at a right
 // angle. Water never makes that angle, and a square join was the first thing
 // a user called out about the attached look.
-var MENISCUS = 25;
+// Measured against a flat light wallpaper with the field tinted: a blend of
+// 25 flares the pill's base nine pixels each side over fourteen of height,
+// so the flare runs about k/2.8. Fourteen gives five pixels, which reads as
+// a drop sitting in its own contact ring without looking like a puddle.
+var MENISCUS = 14;
 // How wide the blend's taper is, as a multiple of the pill's length. The
 // taper exists so a stretching neck narrows to a bridge at the middle - but
 // the blend it scales is ALSO the meniscus at rest, and a taper the pill's
@@ -481,27 +485,37 @@ function fieldReach(lift) {
     return Math.max(0, FIELD_REACH - (Number(lift) || 0));
 }
 
-// The shader's box, from the pill's: the pill and the lift down to the band
-// (the pill's REST outward edge, since the pill moved and the band did not).
-// Nothing along the band past the pill's ends: the blend's radius is zero
-// outside the waist, and the waist never outgrows the pill, so a margin
-// there (the first cut had one) was pixels that only paid the early-out.
+// The shader's box, from the pill's: the pill, the lift down to the band
+// (the pill's REST outward edge, since the pill moved and the band did not),
+// and `pad` along the band at both ends. The pad is the meniscus: a flare
+// spreads OUTWARD from the pill's ends, and a box the pill's own width drew
+// it outside the item, where nothing is rasterised - measured, a pill whose
+// width never changed within a pixel while the blend was 25. It used to be
+// right that nothing was needed there, when the waist never outgrew the
+// pill.
 // Boxed, never anchored. `bandEdge` is the band's inner edge in the box's
 // own frame along the across axis, and `normal` points INTO the band, so the
 // shader's field for the band is one half-plane.
-function blendBox(edge, pill, lift) {
+function blendBox(edge, pill, lift, pad) {
     var e = normalizedEdge(edge);
     var l = Number(lift) || 0;
+    var p = Math.max(0, Number(pad) || 0);
     if (isVertical(e)) {
-        var box = { x: pill.x, y: pill.y, width: pill.width + l, height: pill.height };
+        var box = { x: pill.x, y: pill.y - p, width: pill.width + l, height: pill.height + p * 2 };
         if (e === "left") { box.x = pill.x - l; box.bandEdge = 0; box.normal = { x: -1, y: 0 }; }
         else { box.bandEdge = pill.width + l; box.normal = { x: 1, y: 0 }; }
         return box;
     }
-    var box = { x: pill.x, y: pill.y, width: pill.width, height: pill.height + l };
+    var box = { x: pill.x - p, y: pill.y, width: pill.width + p * 2, height: pill.height + l };
     if (e === "top") { box.y = pill.y - l; box.bandEdge = 0; box.normal = { x: 0, y: -1 }; }
     else { box.bandEdge = pill.height + l; box.normal = { x: 0, y: 1 }; }
     return box;
+}
+
+// How much room the flare needs past the pill's ends: the meniscus it keeps
+// at rest, and the reach the field already adds.
+function blendPad() {
+    return MENISCUS + FIELD_REACH;
 }
 
 // The shader's box for a whole motion, from the dock's box and the REST
@@ -513,7 +527,7 @@ function splitBox(edge, width, height, rest, room, travel) {
     var m = liftedMargins(edge, rest, room, travel);
     var w = Number(width) || 0, h = Number(height) || 0;
     var full = { x: m.left, y: m.top, width: w - m.left - m.right, height: h - m.top - m.bottom };
-    return blendBox(edge, full, travel);
+    return blendBox(edge, full, travel, blendPad());
 }
 
 // The direction a dock icon lifts on hover and bounces on launch: inward, so

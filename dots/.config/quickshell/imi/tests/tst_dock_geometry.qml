@@ -494,7 +494,13 @@ TestCase {
                 verify(pill.x >= box.x && pill.y >= box.y, edge + " " + lift);
                 verify(pill.x + pill.width <= box.x + box.width && pill.y + pill.height <= box.y + box.height, edge + " " + lift);
             }
-            compare(vertical ? box.height : box.width, vertical ? h : w, edge + ": the pill's length, no more");
+            // ...and the flare's room past both ends: a box the pill's own
+            // length drew the meniscus outside the item, where nothing is
+            // rasterised (measured: a width that never changed while the
+            // blend was 25).
+            compare(vertical ? box.height : box.width, (vertical ? h : w) + Geometry.blendPad() * 2,
+                    edge + ": the pill's length plus the flare's room");
+            verify(Geometry.blendPad() > 0);
         }
     }
 
