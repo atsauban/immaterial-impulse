@@ -558,6 +558,23 @@ function barEdge(barVertical, barBottom) {
 
 // The sign the reveal travels in: a bottom dock hides DOWNWARD (positive y),
 // a top dock upward. Callers animate one number and multiply.
+// Where the dock's SURFACE sits on its screen, from what the compositor was
+// asked for: anchored along its edge, its outward layer-shell margin from
+// that edge (frameOffset, which may be negative), spanning the other axis
+// from 0. The frame surface needs the plate in screen coordinates to draw it
+// (frame-one-surface.md, stage 2), and a layer surface knows nothing of its
+// own position - this is the arithmetic that stands in for it. Measured
+// against `hyprctl layers`: a bottom dock 75 tall with a -3 margin on a
+// 1440-tall screen is at y 1368.
+function surfaceOrigin(edge, screenWidth, screenHeight, surfaceWidth, surfaceHeight, outwardMargin) {
+    var e = normalizedEdge(edge);
+    var m = Number(outwardMargin) || 0;
+    if (e === "top") return { x: 0, y: m };
+    if (e === "bottom") return { x: 0, y: (Number(screenHeight) || 0) - (Number(surfaceHeight) || 0) - m };
+    if (e === "left") return { x: m, y: 0 };
+    return { x: (Number(screenWidth) || 0) - (Number(surfaceWidth) || 0) - m, y: 0 };
+}
+
 function hideDirection(edge) {
     var e = normalizedEdge(edge);
     if (e === "bottom" || e === "right") return 1;

@@ -153,7 +153,12 @@ Scope {
                 enabled: dockRoot.splitTravel <= 0
                 animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
             }
-            readonly property real apart: dockRoot.splitTravel > 0 ? dockJoin.cornerRound : dockRoot.lookApart
+            // Round throughout while the join owns the motion: the neck's
+            // meniscus wraps the corner, so a corner that squared itself as
+            // the two fused took the body's flat flank with it and the dock
+            // read as shrinking on the way out. With no lift there is no neck
+            // to wrap anything, and the look scalar still squares it.
+            readonly property real apart: dockRoot.splitTravel > 0 ? 1 : dockRoot.lookApart
             // The icons ride the pill: the strip is centred in the box and
             // the pill, lifted, is not.
             readonly property var liftOffset: DockGeometry.liftOffset(root.edge, dockRoot.splitRoom, dockRoot.splitLift)
@@ -191,8 +196,12 @@ Scope {
             // when the pill has arrived and lifts the instant it starts to go.
             WindowBlurRegion {
                 targetWindow: dockRoot
+                // ...and not while the frame's surface is painting the plate
+                // (stage 2): the frost for it is the frame's region then, and
+                // a second region here, over this window's own transparent
+                // pixels, would blur the frame's painted plate a second time.
                 region: Region {
-                    item: Config.options.dock.showBackground && dockMouseArea.atRest ? dockVisualBackground : null
+                    item: Config.options.dock.showBackground && dockMouseArea.atRest && !dockJoin.drawsPlate ? dockVisualBackground : null
                     topLeftRadius: dockVisualBackground.topLeftRadius
                     topRightRadius: dockVisualBackground.topRightRadius
                     bottomLeftRadius: dockVisualBackground.bottomLeftRadius
@@ -326,8 +335,67 @@ Scope {
                             // attached: its own rest outward margin.
                             bandInset: DockGeometry.margins(root.edge,
                                 Appearance.sizes.elevationMargin, Appearance.sizes.hyprlandGapsOut)[DockGeometry.outwardSide(root.edge)]
+                            // The band's own colour: the join draws the pill
+                            // and the neck as one surface with it, so a second
+                            // opinion about the colour here would be a seam.
+                            color: FrameGeometry.color
                             active: FrameGeometry.enabled && Config.options.dock.showBackground
+                            // The field is drawn on the FRAME's surface, not
+                            // here (frame-one-surface.md, stage 2): this window
+                            // keeps the physics and publishes what the field
+                            // needs, below, so the plate and the band are one
+                            // outline on one surface.
+                            // ...in BOTH states, at rest included, so there is
+                            // no hand-over between two surfaces' render loops
+                            // (one blank frame at the cut, measured). Under a
+                            // fullscreen window a Top surface is buried and the
+                            // frame cannot show anything, so the dock paints
+                            // itself there as it always did.
+                            paintsLocally: dockRoot.fullscreenOnThisMonitor
+                            paintsAtRest: true
                         }
+
+                        // What the frame's surface draws: the plate in SCREEN
+                        // coordinates - the window's origin from what the
+                        // compositor was asked for plus the plate's place in
+                        // it, summed up the tree so a reveal slide is followed
+                        // too - the corners, and the solver's numbers. Absent
+                        // while nothing is fused, so the frame paints nothing.
+                        // A record per step is a small object; the map is
+                        // reassigned because a `property var` signals on
+                        // reassignment only.
+                        readonly property var frameJoinRecord: {
+                            if (!dockJoin.active || !dockJoin.painting || dockRoot.fullscreenOnThisMonitor || !dockRoot.screen) return null;
+                            const origin = DockGeometry.surfaceOrigin(root.edge,
+                                dockRoot.screen.width, dockRoot.screen.height, dockRoot.width, dockRoot.height,
+                                dockRoot.frameMargins[DockGeometry.outwardSide(root.edge)]);
+                            const p = dockVisualBackground;
+                            return {
+                                edge: root.edge,
+                                plate: {
+                                    x: origin.x + dockMouseArea.x + dockHoverRegion.x + dockBackground.x + p.x,
+                                    y: origin.y + dockMouseArea.y + dockHoverRegion.y + dockBackground.y + p.y,
+                                    width: p.width, height: p.height
+                                },
+                                radii: { topLeft: p.topLeftRadius, topRight: p.topRightRadius,
+                                         bottomRight: p.bottomRightRadius, bottomLeft: p.bottomLeftRadius },
+                                gap: dockJoin.state.gap, neck: dockJoin.state.neck, bulge: dockJoin.state.bulge,
+                                meniscus: dockJoin.meniscus, blendPerPixel: dockJoin.blendPerPixel,
+                                // The plate's OWN colour, which is the animated one: the
+                                // tab-to-pill look change rides its Behavior.
+                                climbFraction: dockJoin.climbFraction, color: p.color
+                            };
+                        }
+                        function publishFrameJoin(record) {
+                            const name = dockRoot.screen?.name ?? "";
+                            if (!name) return;
+                            const next = Object.assign({}, GlobalStates.frameJoins);
+                            if (record) next[name] = record; else delete next[name];
+                            GlobalStates.frameJoins = next;
+                        }
+                        onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
+                        Component.onCompleted: publishFrameJoin(frameJoinRecord)
+                        Component.onDestruction: publishFrameJoin(null)
 
                         Rectangle {
                             id: dockVisualBackground
@@ -360,10 +428,8 @@ Scope {
                             // fillets and the bar plate's corners in frame mode,
                             // so the pill's radius is a design value, not a sum.
                             radius: Appearance.rounding.large
-                            // Square where the pill is joined to the band,
-                            // round once the neck has let go: the join's own
-                            // number, so the corner and the neck can never
-                            // disagree about whether the two are one shape.
+                            // Round wherever a neck can reach them; see
+                            // `apart` above.
                             readonly property var frameRadii: DockGeometry.cornerRadiiAt(root.edge, radius,
                                 dockRoot.apart, 0, 1)
                             topLeftRadius:     frameRadii.topLeft
@@ -445,7 +511,7 @@ Scope {
                                 // the tile is absent at a vertical edge and a
                                 // separator that reads the option instead of
                                 // the tile hides against nothing.
-                                visible: Config.options.dock.showPinButton
+                                shown: Config.options.dock.showPinButton
                                     && (dockRow.hasPinnedApps
                                         || !(dockMedia.visible && dockMedia.hasTrack))
                             }
@@ -476,7 +542,7 @@ Scope {
                             }
 
                             DockSeparator {
-                                visible: dockRow.hasPinnedApps
+                                shown: dockRow.hasPinnedApps
                                     && (activeAppsArea.activeUnpinned.length > 0
                                         || (dockMedia.visible && MprisController.activePlayer !== null))
                             }
@@ -498,16 +564,24 @@ Scope {
                                 }
                                 property bool hasActiveUnpinned: activeUnpinned.length > 0 || dockMedia.visible
 
-                                implicitWidth:  root.vertical ? parent.width : activeRow.implicitWidth
-                                implicitHeight: root.vertical ? activeRow.implicitHeight : parent.height
-
-                                Behavior on implicitWidth {
-                                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
+                                // The slot's length along the strip is the
+                                // fluid's, not a tween's: an icon arriving or
+                                // leaving, the media tile coming or going,
+                                // and the pill takes the new length on the
+                                // drop's own spring (FluidValue) - the plate,
+                                // the meniscus and the blur outline derive
+                                // from the row, so they breathe with it.
+                                implicitWidth:  root.vertical ? parent.width : alongSize.value
+                                implicitHeight: root.vertical ? alongSize.value : parent.height
+                                FluidValue {
+                                    id: alongSize
+                                    target: root.vertical ? activeRow.implicitHeight : activeRow.implicitWidth
                                 }
-                                Behavior on implicitHeight {
-                                    enabled: root.vertical
-                                    animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
-                                }
+                                // The content is laid out at its final size
+                                // inside a slot still opening; clipped only
+                                // while it moves, so a hover scale at rest is
+                                // free to leave the box.
+                                clip: alongSize.moving
 
                                 GridLayout {
                                     id: activeRow
@@ -552,7 +626,7 @@ Scope {
                             }
 
                             DockSeparator {
-                                visible: Config.options.dock.showAppsButton
+                                shown: Config.options.dock.showAppsButton
                             }
 
                             DockButton {

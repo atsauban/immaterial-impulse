@@ -504,6 +504,23 @@ TestCase {
         }
     }
 
+    function test_the_surface_origin_is_where_the_compositor_put_it() {
+        // The numbers hyprctl reported for the live dock: 75 tall, its
+        // outward margin -3 (band minus gap), on a 5120x1440 screen.
+        const bottom = Geometry.surfaceOrigin("bottom", 5120, 1440, 5120, 75, -3);
+        compare(bottom.x, 0); compare(bottom.y, 1368);
+        const top = Geometry.surfaceOrigin("top", 5120, 1440, 5120, 75, 5);
+        compare(top.x, 0); compare(top.y, 5);
+        const left = Geometry.surfaceOrigin("left", 5120, 1440, 75, 1440, 2);
+        compare(left.x, 2); compare(left.y, 0);
+        const right = Geometry.surfaceOrigin("right", 5120, 1440, 75, 1440, -3);
+        compare(right.x, 5048); compare(right.y, 0);
+        // Nonsense in, a number out: a plate drawn at NaN is a plate drawn
+        // nowhere, silently.
+        const none = Geometry.surfaceOrigin("bottom", undefined, undefined, undefined, undefined, undefined);
+        verify(isFinite(none.x) && isFinite(none.y));
+    }
+
     function test_the_bars_overloaded_pair_reads_as_an_edge() {
         // `bottom` stops meaning bottom once `vertical` is set. The dock only
         // needs this to notice it is being sent where an auto-hiding bar
