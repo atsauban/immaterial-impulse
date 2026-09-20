@@ -216,11 +216,17 @@ translucent against the band, it is the band.
   Popups: a hover popup fuses to its section's island (`FrameGeometry.popupsJoinBar`), the card
   is the drop as on the plate, its record names the section so the frame joins it to that
   island's edge (`joinBandEdgeFor`), and the overlay reads that island's edge for the card's
-  place. The popup key takes the plate's own box instead of a pinned strip: inside `paintLayer`
-  a ShaderEffect follows its own geometry again (measured), and its band edge moves with the
-  lift. Found on the way: the neck's auto-hide fade was measured against the meniscus (49 px)
+  place. Found on the way: the neck's auto-hide fade was measured against the meniscus (49 px)
   and a plate at rest reaches only 38 past its band, so the neck sat at 0.77 at rest - the fade
   is sixteen rows now (`slideHoldReach`), a dozen being the strip it exists for.
+- **The pinned strip stays, everywhere.** The popup's field was let follow its own box for one
+  commit: inside `paintLayer` it did, on the sandbox's software rasteriser, and on the NVIDIA
+  desktop a hover popup sat a lift below the floating bar with rounded corners while its record
+  said fused (polled live: popup y 46.9, bar bottom 46.95, neck 1) - the plate painted where the
+  ShaderEffect first was. The trap that made the pinned box (frame-one-surface.md stage 2)
+  holds inside the layer there; a sandbox pass on llvmpipe is not evidence about it. Every field
+  keeps its pinned strip; the popup's starts at the frame's band, so the bar's lift never
+  remakes it, and the band-side rows it fills are the bar's plate, healed by the layer.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
