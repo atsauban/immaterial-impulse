@@ -16,7 +16,14 @@ MouseArea { // Notification group area
     // Which backend this card is drawn for. The default is the shell's own
     // freedesktop service, so a call site that says nothing is unchanged.
     property NotificationController controller: NotificationController {}
-    property var notifications: notificationGroup?.notifications ?? []
+    // The group as last SEEN: on the way out the lookup behind
+    // `notificationGroup` goes empty while the delegate is still sliding
+    // (the list keeps it for the remove transition), and a card that read
+    // the live lookup collapsed to a 24 px stub with no text and changed
+    // its frame key mid-slide - the sink into the band became a jump.
+    property var shownGroup: notificationGroup
+    onNotificationGroupChanged: if (root.notificationGroup) root.shownGroup = root.notificationGroup
+    property var notifications: shownGroup?.notifications ?? []
     property int notificationCount: notifications.length
     property bool multipleNotifications: notificationCount > 1
     property bool expanded: false
@@ -42,7 +49,7 @@ MouseArea { // Notification group area
     // The card's offset off the band along the edge's normal: the lift.
     readonly property real liftOffset: root.frameEdge === "right" ? -cardJoin.lift
         : root.frameEdge === "left" ? cardJoin.lift : 0
-    readonly property string joinKey: "notification:" + (root.notificationGroup?.appName ?? "")
+    readonly property string joinKey: "notification:" + (root.shownGroup?.appName ?? "")
     function pin(): void {
         root.pinned = true;
         leaveHideTimer.stop();
@@ -56,7 +63,7 @@ MouseArea { // Notification group area
             root.closing = true;
             return;
         }
-        root.notifications.forEach(notif => root.controller.timeout(notif));
+        root.timeOutWithAnimation();
     }
     FrameJoin {
         id: cardJoin
@@ -73,7 +80,7 @@ MouseArea { // Notification group area
         onMovingChanged: {
             if (cardJoin.moving || !root.closing) return;
             root.closing = false;
-            root.notifications.forEach(notif => root.controller.timeout(notif));
+            root.timeOutWithAnimation();
         }
     }
     // The plate's colour: the band's while fused, the card's while released,
@@ -136,10 +143,23 @@ MouseArea { // Notification group area
         dragIndexDiff == 2 ? (parentDragDistance * 0.1) : 0
 
     function destroyWithAnimation(left = false) {
+        root.leaveWithAnimation(left, null);
+    }
+    // Slides the card out - toward the left, or the right - and then runs
+    // `then`, or discards without one. A fused card leaves INTO its band
+    // (frame-pin-grammar.md): the same slide, aimed at the band's side.
+    function leaveWithAnimation(left, then): void {
         root.qmlParent.resetDrag()
         background.anchors.leftMargin = background.anchors.leftMargin; // Break binding
         destroyAnimation.left = left;
+        destroyAnimation.then = then ?? null;
         destroyAnimation.running = true;
+    }
+    readonly property bool leavesLeft: root.frameEdge === "left"
+    function timeOutWithAnimation(): void {
+        const done = () => root.notifications.forEach(notif => root.controller.timeout(notif));
+        if (root.joinsFrame) root.leaveWithAnimation(root.leavesLeft, done);
+        else done();
     }
 
     hoverEnabled: true
@@ -153,9 +173,7 @@ MouseArea { // Notification group area
         interval: Config.options?.notifications?.hideDelayOnLeave ?? 200
         onTriggered: {
             if (root.containsMouse) return;
-            root.notifications.forEach(notif => {
-                root.controller.timeout(notif);
-            });
+            root.timeOutWithAnimation();
         }
     }
 
@@ -174,6 +192,7 @@ MouseArea { // Notification group area
     SequentialAnimation { // Drag finish animation
         id: destroyAnimation
         property bool left: true
+        property var then: null
         running: false
 
         NumberAnimation {
@@ -185,6 +204,12 @@ MouseArea { // Notification group area
             easing.bezierCurve: Appearance.animation.elementMove.bezierCurve
         }
         onFinished: () => {
+            if (destroyAnimation.then) {
+                const then = destroyAnimation.then;
+                destroyAnimation.then = null;
+                Qt.callLater(then);
+                return;
+            }
             root.notifications.forEach((notif) => {
                 Qt.callLater(() => {
                     root.controller.discard(notif);
@@ -286,9 +311,9 @@ MouseArea { // Notification group area
             NotificationAppIcon { // Icons
                 Layout.alignment: Qt.AlignTop
                 Layout.fillWidth: false
-                image: root?.multipleNotifications ? "" : notificationGroup?.notifications[0]?.image ?? ""
-                appIcon: root.notificationGroup?.appIcon
-                summary: root.notificationGroup?.notifications[root.notificationCount - 1]?.summary
+                image: root?.multipleNotifications ? "" : shownGroup?.notifications[0]?.image ?? ""
+                appIcon: root.shownGroup?.appIcon
+                summary: root.shownGroup?.notifications[root.notificationCount - 1]?.summary
                 urgency: root.notifications.some(n => n.urgency === NotificationUrgency.Critical.toString()) ? 
                     NotificationUrgency.Critical : NotificationUrgency.Normal
             }
@@ -296,7 +321,7 @@ MouseArea { // Notification group area
             ColumnLayout { // Content
                 Layout.fillWidth: true
                 spacing: expanded ? (root.multipleNotifications ? 
-                    (notificationGroup?.notifications[root.notificationCount - 1].image != "") ? 35 : 
+                    (shownGroup?.notifications[root.notificationCount - 1].image != "") ? 35 : 
                     5 : 0) : 0
                 // spacing: 00
                 Behavior on spacing {
@@ -322,8 +347,8 @@ MouseArea { // Notification group area
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                             text: (topRow.showAppName ?
-                                notificationGroup?.appName :
-                                notificationGroup?.notifications[0]?.summary) || ""
+                                shownGroup?.appName :
+                                shownGroup?.notifications[0]?.summary) || ""
                             font.pixelSize: topRow.showAppName ?
                                 topRow.fontSize :
                                 Appearance.font.pixelSize.small
@@ -336,7 +361,7 @@ MouseArea { // Notification group area
                             // Layout.fillWidth: true
                             Layout.rightMargin: Appearance.spacing.space150
                             horizontalAlignment: Text.AlignLeft
-                            text: NotificationUtils.getFriendlyNotifTimeString(notificationGroup?.time)
+                            text: NotificationUtils.getFriendlyNotifTimeString(shownGroup?.time)
                             font.pixelSize: topRow.fontSize
                             color: Appearance.colors.colSubtext
                         }
@@ -359,11 +384,19 @@ MouseArea { // Notification group area
                         colBackgroundHover: root.pinned ? Appearance.colors.colPrimaryContainerHover : Appearance.colors.colLayer2Hover
                         colRipple: root.pinned ? Appearance.colors.colPrimaryContainerActive : Appearance.colors.colLayer2Active
                         onClicked: root.pinned ? root.unpin() : root.pin()
-                        contentItem: MaterialSymbol {
+                        // Sized like the expand button's content: an Item
+                        // the control can measure, the glyph centred in it.
+                        contentItem: Item {
                             anchors.centerIn: parent
-                            text: "keep"
-                            iconSize: Appearance.font.pixelSize.normal
-                            color: root.pinned ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                            implicitWidth: pinIcon.implicitWidth
+                            implicitHeight: pinIcon.implicitHeight
+                            MaterialSymbol {
+                                id: pinIcon
+                                anchors.centerIn: parent
+                                text: "keep"
+                                iconSize: Appearance.font.pixelSize.normal
+                                color: root.pinned ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                            }
                         }
                         StyledToolTip {
                             text: root.pinned ? Translation.tr("Unpin and dismiss") : Translation.tr("Pin: keep it here")

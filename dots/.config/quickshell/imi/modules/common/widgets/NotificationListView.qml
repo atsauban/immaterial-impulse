@@ -59,6 +59,17 @@ StyledListView { // Scrollable window
     // Recomputed on membership changes only: a Region tracks its item's
     // geometry itself, so cards resizing or sliding need no rebuild.
     property var cardItems: []
+    // The delegate showing a notification, for a host that has to take it
+    // out before the model does (a timed-out card sliding into the band).
+    function cardFor(id): var {
+        const children = root.contentItem?.children ?? [];
+        for (let i = 0; i < children.length; i++) {
+            const card = children[i];
+            if (card?.notifications?.some(n => n.notificationId === id))
+                return card;
+        }
+        return null;
+    }
 
     function refreshCardItems(): void {
         let items = [];

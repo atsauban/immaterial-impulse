@@ -13,7 +13,10 @@ Scope {
 
     PanelWindow {
         id: root
-        visible: (Notifications.popupList.length > 0) && !GlobalStates.screenLocked
+        // ...and while a card is still leaving: the list animates its exit
+        // (a fused card slides into the band) only on a visible surface, and
+        // a window that hid on the count cut it to a blink.
+        visible: (Notifications.popupList.length > 0 || listview.cardItems.length > 0) && !GlobalStates.screenLocked
         screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? null
 
         property string position: {
@@ -62,6 +65,18 @@ Scope {
         // box, which would take in the gaps between cards and frost bare
         // wallpaper right where each shadow falls. Pairs with rules.lua
         // turning the layerrule blur off for this namespace.
+        // A popup's time is up: a fused card slides into the band first, and
+        // the service removes it after (or on its own fallback if this window
+        // is not showing it).
+        Connections {
+            target: Notifications
+            function onPopupExpiring(id) {
+                const card = root.frameFused ? listview.cardFor(id) : null;
+                if (card) card.leaveWithAnimation(root.frameEdge === "left", () => Notifications.timeoutNotification(id));
+                else Notifications.timeoutNotification(id);
+            }
+        }
+
         WindowBlurRegion {
             targetWindow: root
             // ...less the cards the frame paints: their blur is the frame's

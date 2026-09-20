@@ -87,7 +87,7 @@ Singleton {
                 return;
             }
             if (notifObject.isTransient) root.discardNotification(notificationId);
-            else root.timeoutNotification(notificationId);
+            else root.expirePopup(notificationId);
             destroy()
         }
     }
@@ -165,6 +165,28 @@ Singleton {
     signal discard(id: int);
     signal discardAll();
     signal timeout(id: var);
+    // A popup's time is up. Whoever shows the card (the popup window) can
+    // take it out first - a fused card slides into the frame's band - and
+    // then call `timeoutNotification`; if nobody does within the fallback,
+    // the service does.
+    signal popupExpiring(id: var);
+    function expirePopup(id) {
+        root.popupExpiring(id);
+        expiryFallbackComponent.createObject(root, { notificationId: id });
+    }
+    Component {
+        id: expiryFallbackComponent
+        Timer {
+            property var notificationId
+            interval: 700
+            running: true
+            onTriggered: {
+                const notif = root.list.find((n) => n.notificationId === notificationId);
+                if (notif && notif.popup) root.timeoutNotification(notificationId);
+                destroy();
+            }
+        }
+    }
 
 	NotificationServer {
         id: notifServer
@@ -255,6 +277,10 @@ Singleton {
         const index = root.list.findIndex((notif) => notif.notificationId === id);
         if (root.list[index] != null)
             root.list[index].popup = false;
+        // The list is reassigned so every popup view drops the card at
+        // once: a delegate that lingered kept publishing its plate for the
+        // frame to paint (measured: a plate with no card in it).
+        triggerListChange();
         root.timeout(id);
     }
 
@@ -265,6 +291,7 @@ Singleton {
         root.popupList.forEach((notif) => {
             notif.popup = false;
         });
+        triggerListChange();
     }
 
     function attemptInvokeAction(id, notifIdentifier) {

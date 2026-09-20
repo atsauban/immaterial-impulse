@@ -392,6 +392,17 @@ class FrameModeContract(unittest.TestCase):
         self.assertNotIn("GlobalStates", group)
         self.assertIn('readonly property bool joinAttached: root.frameLook === "fused" || !root.pinned || root.closing', group)
         self.assertIn("onClicked: root.pinned ? root.unpin() : root.pin()", group)
+        # A fused card LEAVES before the model drops it: the service announces
+        # a popup's expiry, the window slides the card into its band and only
+        # then times it out (a fallback covers a window that is not showing
+        # it); the same slide serves the hover-leave and the unpin.
+        service = _strip((ROOT / "services/Notifications.qml").read_text())
+        self.assertIn("signal popupExpiring(id: var);", service)
+        self.assertIn("else root.expirePopup(notificationId);", service)
+        self.assertIn("function leaveWithAnimation(left, then): void", group)
+        self.assertIn("function timeOutWithAnimation(): void", group)
+        self.assertIn("function cardFor(id): var", _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))
+        self.assertIn("if (card) card.leaveWithAnimation(root.frameEdge === \"left\", () => Notifications.timeoutNotification(id));", popup)
         self.assertIn('removeToLeft: root.frameEdge === "left"', _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))
         self.assertIn('regionItems: listview.cardItems.filter(card => !(card.parent?.plateOnFrame ?? false))', popup)
         self.assertIn('readonly property string frameEdge: root.isRight ? "right" : root.isLeft ? "left" : ""', popup)
