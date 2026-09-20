@@ -227,6 +227,17 @@ translucent against the band, it is the band.
   holds inside the layer there; a sandbox pass on llvmpipe is not evidence about it. Every field
   keeps its pinned strip; the popup's starts at the frame's band, so the bar's lift never
   remakes it, and the band-side rows it fills are the bar's plate, healed by the layer.
+- **A field paints no band side** (footage: "filling the empty space around it is not a fix").
+  The field's band half-plane was painted wherever it lay inside the box - harmless for the dock
+  and the bar, whose boxes stop at the band's edge, but a bar popup's box is pinned to the
+  FRAME's band while its own band is the bar's plate, so with the bar floating it filled the
+  gap between hairline and plate solid, the width of the box. `frame_join.frag` gains
+  `bandPaint`: 0 paints only the plate, its reach and the fillets, nothing past the band's
+  resting surface (the hump stays - it lies on the plate side); the frame sets it for every
+  field (`FrameJoinField.paintBand`), the band being the band's own paint. Rebaked; the JS twin
+  carries the same guard. A `.qsb` is cached by URL for the life of the process: a hot reload
+  kept the old shader and the sandbox "failed" until its shell was restarted - a shader edit
+  needs `qs` restarted, live included.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.

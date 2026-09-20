@@ -473,6 +473,10 @@ inside a box that never moves - and that box stays even inside the frame's paint
 follow its own box painted where it first was on the NVIDIA desktop while the sandbox's llvmpipe
 showed nothing ("fix(frame): every field keeps its pinned strip"); and the frame takes
 `GlobalStates.frameJoins` up from
+`Qt.callLater`. A field paints no band side (`frame_join.frag` `bandPaint`, off from the frame): a popup's
+box crosses the bar's gap and filled it ("fix(frame): a field paints no band side"). A `.qsb` edit needs `qs`
+RESTARTED - the binary is cached by URL for the process's life, a hot reload keeps the old shader. The frame takes
+`GlobalStates.frameJoins` up from
 `Qt.callLater`, not a binding - a repaint asked for from inside another window's sync is only noted
 under the threaded render loop, and the plate froze until a random later frame. **Stage 4 is the pin grammar** (`docs/proposals/frame-pin-grammar.md`): pinned means
 released, unpinned means fused, for the dock (`frame.dock` "auto"), a bar widget's popup
