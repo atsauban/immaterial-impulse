@@ -11,6 +11,18 @@ own repo; the installer pins which revision it builds.
 
 ## [Unreleased]
 
+### Added
+- Frame mode, stage 4 - the pin grammar (docs/proposals/frame-pin-grammar.md): what
+  sits against the frame is either fused to it (one outline, one blur, transient) or
+  released as its own card (pinned, persistent). A bar widget's popup opened by
+  hovering grows out of the bar's band and sinks back into it; pinning it by a
+  click lifts it off. A notification at a left or right position arrives fused to
+  the band on that edge and sinks into it when it times out; its new Pin button
+  lifts it off and keeps it, and unpinning lands it back and dismisses it. The dock
+  follows its own pin under the new `Auto` (pinned floats, unpinned sits on the
+  band); your existing Attached or Floating choice is kept. Settings > Appearance >
+  Frame gains a row each for popups and notifications.
+
 ## [1.2.0] — 2026-09-20
 
 ### Added

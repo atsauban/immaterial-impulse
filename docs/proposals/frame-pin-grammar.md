@@ -1,6 +1,6 @@
 # Frame mode, stage 4: the pin grammar
 
-**Status:** approved 2026-09-20; slices land in order (§4). Nothing has landed yet. Stages 0-3 are in
+**Status:** landed 2026-09-20, slices 1-4 (1ebb25a7a records map, 190d1d125 bar popups, ef5da6b11 notifications, 2bf416bab the dock's "auto"); what was measured landing each is in §7. Stages 0-3 are in
 `frame-one-surface.md` (one surface per screen; the frame paints the dock's plate and, in the
 Hug bar style, the bar's plate as its band - 720f815f7 "release: 1.2.0").
 
@@ -113,3 +113,24 @@ translucent against the band, it is the band.
 2. A hover popup **pinned by click** releases: the lift and the cut, the elevation gap appears.
 3. The dock's `appearance.frame.dock` defaults to `"auto"` in the shipped config
    (`defaults/config.json`); an existing `"attached"` or `"floating"` keeps its meaning.
+
+## 7. What landing it taught
+
+- **A record is withdrawn under the screen and key it was published under.** A notification
+  delegate being destroyed has no list any more (no screen name) and may have no group (no app
+  name); a withdrawal that recomputed either was dropped, and the frame kept painting a plate
+  with no card in it. Measured twice before the fix (ef5da6b11).
+- **A publisher's window has to BE the screen.** The notification popup placed itself inside
+  the other surfaces' exclusive zones (`ExclusionMode.Auto`) and its window coordinates began
+  40 px below the screen's; the frame painted the plate 40 px above the card. Fused, the popup
+  ignores exclusion and takes `FrameGeometry.insets` as its margins.
+- **The strip is per key.** A calendar popup is taller than a dock; the frame's pinned strip is
+  720 px deep for `barPopup`, 480 for `notification:*`, 160 for the dock, and constant per key
+  - a strip that grew with the plate would remake the field every frame.
+- **Not driven in the sandbox:** the click that pins (the nested compositor has no
+  pointer-button dispatcher). The release and the landing are verified as the fused/released
+  geometry pair and by the dock's identical physics; the mid-motion look is the user's review.
+- The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
+  of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
+  the card's own scalar onto the fluid spring is a separate decision.
+

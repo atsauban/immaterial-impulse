@@ -564,6 +564,11 @@ the same tier, and these are the ones already in sight:
   frame mode is a split too - the plate lifting off the band - and takes this
   tier when auto-hide is modelled (frame-mode stage 2).
 
+Bar widget popups and notifications have since taken the grammar with one refinement
+(`frame-pin-grammar.md`): a hover-opened popup and an arriving notification are FUSED to the
+band and submerge back into it, and the split - the swell, the neck, the release - is what
+pinning does; unpinning is the landing and the swallow.
+
 The rule for the next slice is the rule for this one: measure it against
 the reference's grammar (§2) before writing it, and if the measurement says
 the tier's shape is wrong for it, retune the tier and its paragraph rather

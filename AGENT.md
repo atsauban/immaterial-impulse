@@ -471,7 +471,11 @@ changes: a ShaderEffect directly under that window's content item paints its uni
 its own position or size change (measured; frame-one-surface.md stage 2), so the plate travels
 inside a box that never moves; and the frame takes `GlobalStates.frameJoins`/`frameBars` up from
 `Qt.callLater`, not a binding - a repaint asked for from inside another window's sync is only noted
-under the threaded render loop, and the plate froze until a random later frame. **The frame paints the pill at rest too** (`paintsAtRest`): a hand-over back
+under the threaded render loop, and the plate froze until a random later frame. **Stage 4 is the pin grammar** (`docs/proposals/frame-pin-grammar.md`): pinned means
+released, unpinned means fused, for the dock (`frame.dock` "auto"), a bar widget's popup
+(fused by hover, released by click, `frame.popups`) and a notification (fused, its Pin button
+releases and keeps it, `frame.notifications`); every element publishes under its own key through
+`GlobalStates.publishFrameJoin` and the frame paints one field per record. **The frame paints the pill at rest too** (`paintsAtRest`): a hand-over back
 to the dock's Rectangle at the cut crosses two render loops nothing orders, and it showed one blank
 frame at every cut (60 fps capture) - one painter in both states, and the floating pill's 1 px
 border is the stated cost. Under fullscreen the dock paints itself (`paintsLocally` follows

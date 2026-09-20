@@ -1,6 +1,6 @@
 # Frame mode: one surface owns the connected silhouette
 
-**Status:** in progress. Stages 0-3 have landed; stage 4 has not.
+**Status:** landed. Stages 0-3 here; stage 4 - popups and notifications under one pin grammar - is `frame-pin-grammar.md`.
 
 **Goal:** the attached state reads as one piece of material, so that glassmorphism —
 refraction at the edge, a specular rim, a lensing that bends what is behind it — can be
