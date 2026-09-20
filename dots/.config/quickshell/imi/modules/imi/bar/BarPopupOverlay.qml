@@ -118,7 +118,7 @@ Scope {
             // its live size, so nothing about the parked square is stored.
             property var exitAnchor: null
             readonly property bool morphing: card.alongBarAnim.running || card.widthAnim.running
-                || card.openAnim.running
+                || card.heightAnim.running || card.openAnim.running
 
             readonly property var requested: {
                 const popup = GlobalStates.activeBarPopup;
@@ -914,6 +914,7 @@ Scope {
                 readonly property NumberAnimation openAnim: Appearance.animation.elementMove.numberAnimation.createObject(card)
                 readonly property NumberAnimation alongBarAnim: Appearance.animation.elementMove.numberAnimation.createObject(card)
                 readonly property NumberAnimation widthAnim: Appearance.animation.elementMove.numberAnimation.createObject(card)
+                readonly property NumberAnimation heightAnim: Appearance.animation.elementMove.numberAnimation.createObject(card)
 
                 // The only Behavior on the driver, and the one tier serves both
                 // directions. A Behavior's animation cannot be swapped after
@@ -943,6 +944,18 @@ Scope {
                 Behavior on width {
                     enabled: card.animate && !card.followsContent
                     animation: card.widthAnim
+                }
+                // The open height morphs only across a takeover, on the width's
+                // tier: assigned, the card lost its bottom third in one frame
+                // when a shorter popup took over (weather to calendar: 324 to
+                // 216 with no frame between, traced) and the blur it left
+                // behind snapped with it - a flash. An entrance keeps its
+                // unroll (the height rides the driver from the parked square,
+                // no outgoing tree there), a content-driven card keeps
+                // following, and the exit's collapse rides the driver too.
+                Behavior on openHeight {
+                    enabled: card.animate && overlayWindow.outgoing !== null && !card.followsContent
+                    animation: card.heightAnim
                 }
 
                 HoverHandler {
