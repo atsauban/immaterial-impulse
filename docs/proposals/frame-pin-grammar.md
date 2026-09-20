@@ -250,12 +250,19 @@ translucent against the band, it is the band.
   clamp as it lifted - a 36 px slide along the bar in the footage, the still-forming neck hanging
   past the corner for those frames - and the landing slid it back. The card is placed again when
   the plate moves or its state turns.
-- **No retarget under an exit** (footage: the Privacy card, pinned then dismissed by a click
-  away, fused back and vanished instead of submerging). `retarget()` writes `openProgress` to
-  1 - it is the opening's write - and a content-driven card re-targets when its content
-  resizes; the Privacy card's controls collapse on unpin, so that resize ran under the card's
-  own exit and re-opened it, and the exit timer then removed it whole. `retarget()` returns
-  under `exiting`, for every caller.
+- **A released card lands first, then submerges** (footage: the Privacy card, pinned then
+  dismissed by a click away). Three things were wrong at once. The landing and the collapse ran
+  together, so the card shrank while still coming down and never read as fusing back - `beginExit`
+  now turns the join attached and holds the collapse until the gap is closed and the neck whole
+  (`landing`, then `submerge()`; not until the spring stops ringing, which took 670 ms for the
+  last tenth of a pixel). `retarget()` writes `openProgress` to 1 - the opening's write - and the
+  Privacy card, content-driven, re-targets as its controls collapse on unpin; under the submerge
+  that re-opened the card and the exit timer removed it whole, so `retarget()` returns under a
+  submerge (it may still follow the content while landing - the collapse and the landing are one
+  motion there), and a content-driven retarget runs from the event loop, after the layout has
+  settled. And a collapsed card kept a whole neck: a stalk hung under the bar until the timer ran
+  out - the fillets are now as tall as the card (the neck scales with its height, squared), and a
+  card under 3 px publishes nothing.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
