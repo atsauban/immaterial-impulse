@@ -250,6 +250,12 @@ translucent against the band, it is the band.
   clamp as it lifted - a 36 px slide along the bar in the footage, the still-forming neck hanging
   past the corner for those frames - and the landing slid it back. The card is placed again when
   the plate moves or its state turns.
+- **No retarget under an exit** (footage: the Privacy card, pinned then dismissed by a click
+  away, fused back and vanished instead of submerging). `retarget()` writes `openProgress` to
+  1 - it is the opening's write - and a content-driven card re-targets when its content
+  resizes; the Privacy card's controls collapse on unpin, so that resize ran under the card's
+  own exit and re-opened it, and the exit timer then removed it whole. `retarget()` returns
+  under `exiting`, for every caller.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
