@@ -269,7 +269,13 @@ class FrameModeContract(unittest.TestCase):
         bar = _strip(BAR.read_text())
         self.assertEqual(bar.count("FrameGeometry.enabled ? 0 :"), 4, "the centre-only pill squares all four corners in frame mode")
         frame = _strip(FRAME.read_text())
-        self.assertIn('color: band.painted ? FrameGeometry.color : "transparent"', frame, "painted or transparent, never unmapped")
+        self.assertIn('color: band.painted ? paintLayer.solid(FrameGeometry.color) : "transparent"', frame, "painted or transparent, never unmapped")
+        # One layer, one alpha: the frame's paints overlap by design, and a
+        # translucent colour painted twice doubles (the bar under an open
+        # popup read darker than the popup). Opaque colours skip the layer.
+        self.assertIn("layer.enabled: paintLayer.translucent", frame)
+        self.assertIn("opacity: paintLayer.translucent ? paintLayer.alpha : 1", frame)
+        self.assertIn("color: joinField.j ? paintLayer.solid(joinField.j.color) : \"transparent\"", frame)
         self.assertIn("visible: FrameGeometry.enabled\n", frame)
         self.assertNotIn("visible: FrameGeometry.enabled && !fullscreen", frame)
         self.assertIn("exclusionMode: ExclusionMode.Ignore", frame, "the band lives in the gap; it reserves nothing")
@@ -454,7 +460,12 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn('GlobalStates.publishFrameJoin(name, "bar", record);', barWindow)
         self.assertIn("readonly property bool joinAttached: FrameGeometry.barAttachedFor(GlobalStates.barPinned, barRoot.barOccupied)", barWindow)
         self.assertIn("plateOnFrame: barJoin.drawsPlate && !barContent.centerOnly && Config.options.bar.showBackground", barWindow)
-        self.assertIn("? DockGeometry.splitZoneExtra(barJoin.travel, !barRoot.joinAttached, barJoin.lift) : 0", barWindow)
+        self.assertIn("? DockGeometry.splitZoneExtra(barJoin.travel + Math.max(0, barRoot.bandInsetHere), !barRoot.joinAttached, barJoin.lift) : 0", barWindow)
+        self.assertIn("? barJoin.lift * (1 + Math.max(0, barRoot.bandInsetHere) / barJoin.travel) : 0", barWindow)
+        # The reveal strip reaches the screen edge whatever the lift: a strip
+        # that began at the lifted plate flapped the bar at 5 Hz under a
+        # pointer held on row 0 (footage; hoverRegionWidth 2).
+        self.assertIn("readonly property real rawTop: barContent.y - reveal - Appearance.sizes.barDetachInset - barRoot.plateLift", barWindow)
         self.assertIn("zoneExtra: barRoot.releaseZoneExtra", barWindow)
         # Auto-hide slides the plate out THROUGH the band: the band on the
         # bar's edge goes with it (no line under a hidden bar), the bar's

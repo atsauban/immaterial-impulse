@@ -76,7 +76,7 @@ Scope {
         // edge (FrameJoinField's box), so nothing else paints these rows.
         Rectangle {
             anchors.fill: parent
-            color: band.painted ? FrameGeometry.color : "transparent"
+            color: band.painted ? paintLayer.solid(FrameGeometry.color) : "transparent"
         }
         x: band.edge === "right" ? parent.width - band.inset - band.extent
          : band.edge === "left" ? band.inset : 0
@@ -125,14 +125,45 @@ Scope {
                     bottom: true
                 }
 
-                Band { id: topBand;    edge: "top";    hidden: screenScope.hidden
-                       inset: surface.barRecord?.edge === "top" ? surface.barBandInset : 0 }
-                Band { id: bottomBand; edge: "bottom"; hidden: screenScope.hidden
-                       inset: surface.barRecord?.edge === "bottom" ? surface.barBandInset : 0 }
-                Band { id: leftBand;   edge: "left";   hidden: screenScope.hidden
-                       topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
-                Band { id: rightBand;  edge: "right";  hidden: screenScope.hidden
-                       topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
+                // Everything the frame paints, in ONE layer with ONE alpha.
+                // The paints overlap by design: a popup's field fills its
+                // band side, and its band is the bar's plate, which the bar's
+                // own field paints too; a fused plate reaches two rows into
+                // its band so the lift's first pixels stay seamless. Painted
+                // straight onto the surface with a translucent colour, every
+                // overlap doubled - the bar under an open popup read 22
+                // where the popup read 37 (measured; "change the bar
+                // opacity to see it"). So while the frame's colour is
+                // translucent the bands and the fields paint OPAQUE into an
+                // offscreen layer and the layer is blended once at the
+                // colour's alpha: overlaps heal instead of darkening, and an
+                // abutting edge's antialiasing is covered by its neighbour.
+                // The cost is one screen-sized layer per frame surface,
+                // re-rendered while a join moves. A record's own alpha is
+                // not honoured inside it (a floating pill the frame paints at
+                // rest takes the frame's); opaque colours skip the layer.
+                Item {
+                    id: paintLayer
+                    anchors.fill: parent
+                    readonly property real alpha: FrameGeometry.color.a
+                    readonly property bool translucent: paintLayer.alpha < 0.999
+                    function solid(c) { return paintLayer.translucent ? Qt.rgba(c.r, c.g, c.b, 1) : c; }
+                    layer.enabled: paintLayer.translucent
+                    opacity: paintLayer.translucent ? paintLayer.alpha : 1
+                    Band { id: topBand;    edge: "top";    hidden: screenScope.hidden
+                           inset: surface.barRecord?.edge === "top" ? surface.barBandInset : 0 }
+                    Band { id: bottomBand; edge: "bottom"; hidden: screenScope.hidden
+                           inset: surface.barRecord?.edge === "bottom" ? surface.barBandInset : 0 }
+                    Band { id: leftBand;   edge: "left";   hidden: screenScope.hidden
+                           topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
+                    Band { id: rightBand;  edge: "right";  hidden: screenScope.hidden
+                           topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
+                    Repeater {
+                        id: joinPainters
+                        model: joinKeys
+                        delegate: JoinPainter {}
+                    }
+                }
 
                 // The joins (frame-one-surface.md stage 2, frame-pin-grammar.md
                 // §3). Whatever is fused to the frame on this screen - the
@@ -280,7 +311,7 @@ Scope {
                             radiusBottomRight: joinField.j?.radii.bottomRight ?? 0
                             radiusBottomLeft: joinField.j?.radii.bottomLeft ?? 0
                             bandEdge: surface.joinBandEdgeFor(painter.key, joinField.edge)
-                            color: joinField.j?.color ?? "transparent"
+                            color: joinField.j ? paintLayer.solid(joinField.j.color) : "transparent"
                             gap: joinField.j?.gap ?? 0
                             neck: joinField.j?.neck ?? 0
                             bulgeRaw: joinField.j?.bulge ?? 0
@@ -303,11 +334,6 @@ Scope {
                             height: r?.height ?? 0
                         }
                     }
-                }
-                Repeater {
-                    id: joinPainters
-                    model: joinKeys
-                    delegate: JoinPainter {}
                 }
 
                 // One region for the whole border, composed per band and
