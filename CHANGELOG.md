@@ -24,7 +24,8 @@ own repo; the installer pins which revision it builds.
   follows its own pin under the new `Auto` (pinned floats, unpinned sits on the
   band); your existing Attached or Floating choice is kept. The bar itself (Hug style)
   sits fused on the frame's edge while the workspace is empty and lifts off it as an
-  island - by the compositor's gap, corners rounding - once a window is open; pin it
+  island - by the compositor's gap, corners rounding, windows making room for it - once a
+  window is open; pin it
   with `qs -c imi ipc call bar togglePin` to keep it lifted. Settings > Appearance >
   Frame gains a row each for the bar, popups and notifications.
 

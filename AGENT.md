@@ -490,8 +490,11 @@ set by the bar's window), the band on the bar's edge stays the hairline, and the
 side bands by the same, corners rounding with the lift - an island). `FrameGeometry.barAttachedFor(pinned,
 occupied)` decides from `frame.bar`: "auto" is fused while the monitor's active workspace has no window
 and nothing pins the bar (`HyprlandData.occupiedByMonitorName`, `GlobalStates.barPinned`, `bar togglePin`
-over IPC), "attached"/"floating" force one look. The exclusive zone never moves: the lift lives inside
-the gap the compositor already leaves. A bar popup fuses to the plate's inner edge wherever the lift put
+over IPC), "attached"/"floating" force one look. Released, the bar reserves its lift as well
+(`releaseZoneExtra`, the dock's `splitZoneExtra` rule: flips at the start of a lift and the end of a
+landing, one re-tile per state change) - with the zone held the island sat ON the first window's edge
+(measured at 8x, "feat(frame): a released bar reserves its lift"); the notification popup's `roomOn`
+reads the extra off the bar's record. A bar popup fuses to the plate's inner edge wherever the lift put
 it (`BarPopupOverlay.barLift`). Other bar styles keep their own plates: islands inside the frame.
 ("feat(frame): one surface per screen draws the four bands"),
 ("fix(frame): the band's blur is scoped like the bar's, so the two stop being two"),

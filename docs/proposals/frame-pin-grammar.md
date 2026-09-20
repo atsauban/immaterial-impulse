@@ -32,7 +32,7 @@ Settings > Appearance > Frame gets one row per surface to override the default.
 | bar widget popup | click (`StyledPopup.pinnedOpen`, tray menus, Docker/Discord plugins) | released, as today | already pinned | close: swallow into the band, submerge |
 | notification | arrives (`Notifications.popupList`), emerging from its band | fused to the band on its edge (`*_right`, `*_left`; the centre positions stay released) | a **Pin** button, or a drag away from the band past a threshold: releases it and cancels its timeout - it persists. Unpin (the button, or a drag back that ends nearer the band than the pinned rest) fuses it back and restarts its clock | close (the x) or timeout: a released card lands first, then slides into the band. A drag toward the band is never stopped: the join forms with the approach, past the edge the card goes under, and let go there it slides the rest of the way in and closes. Away from the band the pull is elastic to a limit and springs back short of the threshold |
 | dock | reveal at the edge (unpinned) | fused: reveals out of the band and hides back into it | the dock's pin: released, reserves its edge (`DockReservation`) | unpin: lands, fuses; then hides into the band when the pointer leaves |
-| bar | always on | Hug style: fused to the hairline band on its edge while the monitor's active workspace holds no window; released - lifted by the compositor's gap, inset from the side bands by the same, corners rounding with the lift - once a window is there (`FrameGeometry.barAttachedFor`; `appearance.frame.bar` "auto"/"attached"/"floating" overrides); other styles: islands | `bar togglePin` over IPC (`GlobalStates.barPinned`): pinned is released whatever the workspace holds; unpin returns to the workspace rule | the exclusive zone never moves - the lift lives inside the gap the compositor already leaves; bar popups fuse to the plate's inner edge wherever the lift put it; auto-hide in frame mode is still a split (out of scope, frame-one-surface.md §7) |
+| bar | always on | Hug style: fused to the hairline band on its edge while the monitor's active workspace holds no window; released - lifted by the compositor's gap, inset from the side bands by the same, corners rounding with the lift - once a window is there (`FrameGeometry.barAttachedFor`; `appearance.frame.bar` "auto"/"attached"/"floating" overrides); other styles: islands | `bar togglePin` over IPC (`GlobalStates.barPinned`): pinned is released whatever the workspace holds; unpin returns to the workspace rule | released, the bar reserves its lift as well (the dock's flip rule: once per state change, on the compositor's own animation), so windows make room and the island has its gap on every side; bar popups fuse to the plate's inner edge wherever the lift put it; auto-hide in frame mode is still a split (out of scope, frame-one-surface.md §7) |
 
 Two things the table changes on purpose:
 
@@ -148,11 +148,15 @@ translucent against the band, it is the band.
   compositor gap) with the side insets and the corner radius riding it, unpin back in three
   samples, a launched window releases, its close fuses back. The band on the bar's edge stays the
   hairline (`bandExtent` no longer returns 0 there; the plate covers it fused, so nothing shows
-  twice). The travel is the compositor's outer gap, so the exclusive zone never moves and no
-  window re-tiles for the state change. Not driven: a hover popup against the lifted plate - the
-  nested compositor's window was parked on a closed special workspace, so it rendered nothing
-  and pointer motion dispatched inside it opened no popup; the offset is one term
-  (`BarPopupOverlay.barLift`) on the fused card's y and its `bandInset`.
+  twice). The travel is the compositor's outer gap. Holding the exclusive zone through the
+  release put the island's bottom edge 1 px above the first window's top (8x crop): sides aligned
+  with the window, nothing below - a bar sitting on a window, not an island. Decided at review:
+  the released bar reserves its lift as well, by the dock's rule (`splitZoneExtra`: the extra
+  flips at the start of a lift and the end of a landing), so the compositor re-tiles once per
+  state change on its own animation and the island keeps its gap on every side. Popups were
+  driven through a sandbox-only probe (the nested compositor delivers no hover): a hover popup
+  fuses to the lifted plate's inner edge (`BarPopupOverlay.barLift`), a pinned one lifts its
+  elevation margin off it; all five bar styles captured, the other four unchanged (islands).
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
