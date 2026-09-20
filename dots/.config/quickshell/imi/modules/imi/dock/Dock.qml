@@ -362,8 +362,8 @@ Scope {
                         // too - the corners, and the solver's numbers. Absent
                         // while nothing is fused, so the frame paints nothing.
                         // A record per step is a small object; the map is
-                        // reassigned because a `property var` signals on
-                        // reassignment only.
+                        // reassigned whole by GlobalStates.publishFrameJoin,
+                        // under the key "dock" (frame-pin-grammar.md §3).
                         readonly property var frameJoinRecord: {
                             if (!dockJoin.active || !dockJoin.painting || dockRoot.fullscreenOnThisMonitor || !dockRoot.screen) return null;
                             const origin = DockGeometry.surfaceOrigin(root.edge,
@@ -389,9 +389,7 @@ Scope {
                         function publishFrameJoin(record) {
                             const name = dockRoot.screen?.name ?? "";
                             if (!name) return;
-                            const next = Object.assign({}, GlobalStates.frameJoins);
-                            if (record) next[name] = record; else delete next[name];
-                            GlobalStates.frameJoins = next;
+                            GlobalStates.publishFrameJoin(name, "dock", record);
                         }
                         onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
                         Component.onCompleted: publishFrameJoin(frameJoinRecord)

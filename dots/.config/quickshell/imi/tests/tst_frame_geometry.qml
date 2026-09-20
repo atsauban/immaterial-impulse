@@ -118,4 +118,18 @@ TestCase {
         // tst_join_field.qml): the frame no longer guesses a strip for it.
         verify(Geo.joinFlareRect === undefined);
     }
+
+    function test_join_records_are_a_map_per_screen_that_never_mutates() {
+        const a = Geo.withJoin({}, "DP-1", "dock", { edge: "bottom" });
+        compare(Object.keys(a["DP-1"]), ["dock"]);
+        const b = Geo.withJoin(a, "DP-1", "notification:7", { edge: "right" });
+        compare(Object.keys(b["DP-1"]).sort(), ["dock", "notification:7"]);
+        compare(Object.keys(a["DP-1"]), ["dock"], "the earlier map is untouched");
+        verify(b !== a && b["DP-1"] !== a["DP-1"], "new objects, so a property var notices");
+        const c = Geo.withJoin(b, "DP-1", "dock", null);
+        compare(Object.keys(c["DP-1"]), ["notification:7"]);
+        const d = Geo.withJoin(c, "DP-1", "notification:7", null);
+        compare(Object.keys(d), [], "a screen with nothing fused is absent");
+        compare(Geo.withJoin(d, "", "dock", { edge: "bottom" }), d, "no screen, no change");
+    }
 }

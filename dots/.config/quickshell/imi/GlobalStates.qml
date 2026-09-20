@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Io
 import "modules/common/functions/edit_mode.js" as EditMode
+import "services/frame_geometry.js" as FrameGeo
 pragma Singleton
 pragma ComponentBehavior: Bound
 
@@ -84,11 +85,17 @@ Singleton {
     // Every frame join the frame's surface is asked to paint, keyed by screen
     // name (frame-one-surface.md, stage 2): the element that owns the motion
     // (the dock) publishes its plate in SCREEN coordinates with the solver's
-    // numbers, and Frame.qml draws the field from it so the plate and the band
-    // are one outline on one surface. The `clockDepthViewports` shape: a
-    // reassigned map, the entry removed on destruction, absent while nothing
-    // is fused.
+    // numbers, and Frame.qml draws a field per record so the plates and the
+    // band are one outline on one surface. A map of screen name to a map of
+    // element key to record, reassigned whole (frame-pin-grammar.md §3): the
+    // entry removed on destruction, the screen absent while nothing is fused.
     property var frameJoins: ({})
+    // How an element publishes: `record` null withdraws it. Keys are the
+    // element ("dock", "barPopup", "notification:<id>"), and a screen with
+    // nothing fused is absent (frame_geometry.js `withJoin`).
+    function publishFrameJoin(screen: string, key: string, record: var): void {
+        root.frameJoins = FrameGeo.withJoin(root.frameJoins, screen, key, record);
+    }
     // The bar's plate, where the frame's surface paints it (stage 3): per
     // screen, the plate's thickness and how far its edge side sits from the
     // screen edge (negative while auto-hide slides it out). Same shape and

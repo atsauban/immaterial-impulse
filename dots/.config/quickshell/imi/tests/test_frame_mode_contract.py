@@ -303,7 +303,13 @@ class FrameModeContract(unittest.TestCase):
         dock = _strip((ROOT / "modules/imi/dock/Dock.qml").read_text())
         field = _strip((ROOT / "modules/common/widgets/FrameJoinField.qml").read_text())
         self.assertIn("FrameJoinField {", frame)
-        self.assertIn("surface.join = GlobalStates.frameJoins[name] ?? null;", frame)
+        self.assertIn("surface.joins = GlobalStates.frameJoins[name] ?? ({});", frame)
+        # Many records per screen, one painter each (frame-pin-grammar.md §3):
+        # the keys are a ListModel diffed on take-up, never reassigned, so a
+        # notification arriving does not rebuild the dock's field beside it.
+        self.assertIn("component JoinPainter: Item", frame)
+        self.assertIn("if (!have) joinKeys.append({ key });", frame)
+        self.assertIn("readonly property var record: surface.joins[painter.key] ?? null", frame)
         # The blur region IS the field's outline: the rows the shader paints,
         # evaluated by the same field in JS (join_field.js), one Region per
         # rectangle from a pool the field merges down to. A strip guessed for
@@ -318,14 +324,14 @@ class FrameModeContract(unittest.TestCase):
         # shell's frame rate), so a field with no pool size computes none.
         self.assertIn("property int outlineLimit: 0", field)
         self.assertIn("if (!field.visible || field.outlineLimit <= 0) return [];", field)
-        self.assertIn("outlineLimit: joinOutlinePool.count", frame)
-        self.assertIn("readonly property var r: surface.joinField?.outline[index] ?? null", frame)
+        self.assertIn("outlineLimit: outlinePool.count", frame)
+        self.assertIn("readonly property var r: painter.field?.outline[index] ?? null", frame)
         # The frame's field is the band strip, pinned: on this surface a
         # ShaderEffect whose own x/width change after creation paints the new
         # uniforms at the old place (measured; a Rectangle beside it moves),
         # so the plate travels inside a box that never moves, and the box is
         # re-made, not resized, when the strip changes.
-        self.assertIn("pinnedBox: joinLoader.strip", frame)
+        self.assertIn("pinnedBox: fieldLoader.strip", frame)
         # ...and the frame keeps its own frame clock while a record moves: a
         # window updated from another window's animation had its render
         # coalesced away until that animation stopped (the plate froze, then
@@ -347,7 +353,8 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn("paintsLocally: dockRoot.fullscreenOnThisMonitor", dock)
         self.assertIn("paintsAtRest: true", dock)
         self.assertIn("if (!dockJoin.active || !dockJoin.painting || dockRoot.fullscreenOnThisMonitor || !dockRoot.screen) return null;", dock)
-        self.assertIn("GlobalStates.frameJoins = next;", dock)
+        self.assertIn('GlobalStates.publishFrameJoin(name, "dock", record);', dock)
+        self.assertIn("function publishFrameJoin(screen: string, key: string, record: var): void", _strip((ROOT / "GlobalStates.qml").read_text()))
         self.assertIn("Component.onDestruction: publishFrameJoin(null)", dock)
         # Stage 3: where the bar's plate covers its strip, the frame's band on
         # that edge IS the plate - the bar publishes thickness and slide,

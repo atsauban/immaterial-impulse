@@ -133,16 +133,18 @@ Scope {
                 Band { id: rightBand;  edge: "right";  hidden: screenScope.hidden
                        topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
 
-                // The join (frame-one-surface.md, stage 2). Whatever is fused
-                // to the frame on this screen - the dock, today - publishes
-                // its plate in screen coordinates with the solver's numbers,
-                // and the field is drawn HERE, so the plate, the neck and the
-                // band are one distance field on one surface: one outline for
-                // the blur region to follow, and one for a specular rim later.
-                // The element's own plate stands down while this paints
-                // (FrameJoin.drawsPlate); its window keeps the icons, the
-                // input and the exclusive zone.
-                // The records, taken up a beat AFTER they are published.
+                // The joins (frame-one-surface.md stage 2, frame-pin-grammar.md
+                // §3). Whatever is fused to the frame on this screen - the
+                // dock, a bar popup, a notification - publishes its plate in
+                // screen coordinates with the solver's numbers under its own
+                // key, and a field is drawn HERE for each, so every plate,
+                // neck and the band are distance fields on one surface: one
+                // outline for the blur region to follow, and one for a
+                // specular rim later. Each element's own plate stands down
+                // while this paints (FrameJoin.drawsPlate); its window keeps
+                // its content, its input and its exclusive zone.
+                //
+                // The records are taken up a beat AFTER they are published.
                 // They are published from inside the other window's frame -
                 // the dock's layout settling in its polish, its spring's
                 // FrameAnimation tick - and under the threaded render loop a
@@ -154,14 +156,26 @@ Scope {
                 // the new width some random moment later; a colour toggled
                 // by a Timer, which fires between frames, rendered every
                 // time. `Qt.callLater` runs once the publisher's frame is
-                // done, so the field's changes ask for a repaint from the
+                // done, so the fields' changes ask for a repaint from the
                 // event loop like the Timer did.
-                property var join: null
+                property var joins: ({})
                 property var barPlate: null
+                // The keys, as a model the painters follow: diffed rather than
+                // reassigned, so a notification arriving does not rebuild the
+                // dock's field beside it.
+                ListModel { id: joinKeys }
                 function takeRecords() {
                     const name = screenScope.modelData.name;
-                    surface.join = GlobalStates.frameJoins[name] ?? null;
+                    surface.joins = GlobalStates.frameJoins[name] ?? ({});
                     surface.barPlate = GlobalStates.frameBars[name] ?? null;
+                    const wanted = Object.keys(surface.joins).sort();
+                    for (let i = joinKeys.count - 1; i >= 0; i--)
+                        if (!wanted.includes(joinKeys.get(i).key)) joinKeys.remove(i);
+                    for (const key of wanted) {
+                        let have = false;
+                        for (let i = 0; i < joinKeys.count && !have; i++) have = joinKeys.get(i).key === key;
+                        if (!have) joinKeys.append({ key });
+                    }
                 }
                 Connections {
                     target: GlobalStates
@@ -175,7 +189,7 @@ Scope {
                     return Geo.joinBandEdge(edge, extent, surface.width, surface.height);
                 }
 
-                // The strip the field paints in: the band's edge, the whole
+                // The strip a field paints in: the band's edge, the whole
                 // width, and enough depth for the plate at full lift plus
                 // the meniscus - a box that never moves or resizes while the
                 // plate does (FrameJoinField.pinnedBox says why). It changes
@@ -189,56 +203,70 @@ Scope {
                     if (edge === "right") return Qt.rect(b - d, 0, d, surface.height);
                     return Qt.rect(0, b - d, surface.width, d);
                 }
-                readonly property rect joinStrip: surface.joinStripFor(surface.join?.edge ?? "bottom")
-                readonly property var joinField: joinLoader.item
-                Loader {
-                    id: joinLoader
-                    readonly property rect strip: surface.joinStrip
-                    onStripChanged: { active = false; active = true; }
-                    active: true
-                    sourceComponent: FrameJoinField {
-                        id: joinField
-                        readonly property var j: surface.join
-                        painting: joinField.j !== null && !screenScope.hidden
-                        edge: joinField.j?.edge ?? "bottom"
-                        plateX: joinField.j?.plate.x ?? 0
-                        plateY: joinField.j?.plate.y ?? 0
-                        plateWidth: joinField.j?.plate.width ?? 0
-                        plateHeight: joinField.j?.plate.height ?? 0
-                        radiusTopLeft: joinField.j?.radii.topLeft ?? 0
-                        radiusTopRight: joinField.j?.radii.topRight ?? 0
-                        radiusBottomRight: joinField.j?.radii.bottomRight ?? 0
-                        radiusBottomLeft: joinField.j?.radii.bottomLeft ?? 0
-                        bandEdge: surface.bandEdgeFor(joinField.edge)
-                        color: joinField.j?.color ?? "transparent"
-                        gap: joinField.j?.gap ?? 0
-                        neck: joinField.j?.neck ?? 0
-                        bulgeRaw: joinField.j?.bulge ?? 0
-                        meniscus: joinField.j?.meniscus ?? 45
-                        blendPerPixel: joinField.j?.blendPerPixel ?? 4
-                        climbFraction: joinField.j?.climbFraction ?? 0
-                        outlineLimit: joinOutlinePool.count
-                        pinnedBox: joinLoader.strip
+
+                // One record's painter: its field on its edge's strip, and
+                // its outline as a pool of Regions for the blur region - one
+                // Region per rectangle of what the field painted
+                // (FrameJoinField.outline), out of a pool declared once; the
+                // field merges its rows down to the pool's size. A strip
+                // guessed from the study's ratios had frosted a 14x20 px block
+                // of bare wallpaper at each end of the dock, outside the
+                // concave fillet and inside the strip.
+                component JoinPainter: Item {
+                    id: painter
+                    required property string key
+                    readonly property var record: surface.joins[painter.key] ?? null
+                    readonly property string edge: painter.record?.edge ?? "bottom"
+                    readonly property rect strip: surface.joinStripFor(painter.edge)
+                    readonly property var field: fieldLoader.item
+                    readonly property Instantiator pool: outlinePool
+                    Loader {
+                        id: fieldLoader
+                        readonly property rect strip: painter.strip
+                        onStripChanged: { active = false; active = true; }
+                        active: true
+                        sourceComponent: FrameJoinField {
+                            id: joinField
+                            readonly property var j: painter.record
+                            painting: joinField.j !== null && !screenScope.hidden
+                            edge: joinField.j?.edge ?? "bottom"
+                            plateX: joinField.j?.plate.x ?? 0
+                            plateY: joinField.j?.plate.y ?? 0
+                            plateWidth: joinField.j?.plate.width ?? 0
+                            plateHeight: joinField.j?.plate.height ?? 0
+                            radiusTopLeft: joinField.j?.radii.topLeft ?? 0
+                            radiusTopRight: joinField.j?.radii.topRight ?? 0
+                            radiusBottomRight: joinField.j?.radii.bottomRight ?? 0
+                            radiusBottomLeft: joinField.j?.radii.bottomLeft ?? 0
+                            bandEdge: surface.bandEdgeFor(joinField.edge)
+                            color: joinField.j?.color ?? "transparent"
+                            gap: joinField.j?.gap ?? 0
+                            neck: joinField.j?.neck ?? 0
+                            bulgeRaw: joinField.j?.bulge ?? 0
+                            meniscus: joinField.j?.meniscus ?? 45
+                            blendPerPixel: joinField.j?.blendPerPixel ?? 4
+                            climbFraction: joinField.j?.climbFraction ?? 0
+                            outlineLimit: outlinePool.count
+                            pinnedBox: fieldLoader.strip
+                        }
+                    }
+                    Instantiator {
+                        id: outlinePool
+                        model: 64
+                        delegate: Region {
+                            required property int index
+                            readonly property var r: painter.field?.outline[index] ?? null
+                            x: r?.x ?? 0
+                            y: r?.y ?? 0
+                            width: r?.width ?? 0
+                            height: r?.height ?? 0
+                        }
                     }
                 }
-                // The join's outline for the blur region: one Region per
-                // rectangle of what the field painted (FrameJoinField.outline),
-                // out of a pool declared once - a Region's list takes an
-                // array, and the field merges its rows down to the pool's
-                // size. A strip guessed from the study's ratios had frosted
-                // a 14x20 px block of bare wallpaper at each end of the dock,
-                // outside the concave fillet and inside the strip.
-                Instantiator {
-                    id: joinOutlinePool
-                    model: 64
-                    delegate: Region {
-                        required property int index
-                        readonly property var r: surface.joinField?.outline[index] ?? null
-                        x: r?.x ?? 0
-                        y: r?.y ?? 0
-                        width: r?.width ?? 0
-                        height: r?.height ?? 0
-                    }
+                Repeater {
+                    id: joinPainters
+                    model: joinKeys
+                    delegate: JoinPainter {}
                 }
 
                 // One region for the whole border, composed per band and
@@ -254,15 +282,18 @@ Scope {
                         Region { item: rightBand.painted ? rightBand : null }
                         Region { item: topBand.painted ? topBand : null }
                         Region { item: bottomBand.painted ? bottomBand : null }
-                        // ...and the join, as the rows the field paints: the
-                        // plate, the neck and the meniscus' flanks are one
-                        // outline, and this is that outline (empty while the
-                        // field is not painting here).
+                        // ...and the joins, as the rows their fields paint:
+                        // each plate, its neck and the meniscus' flanks are
+                        // one outline, and these are those outlines (empty
+                        // while nothing paints here).
                         Region {
                             regions: {
-                                const pool = [];
-                                for (let i = 0; i < joinOutlinePool.count; i++) pool.push(joinOutlinePool.objectAt(i));
-                                return pool;
+                                const all = [];
+                                for (let p = 0; p < joinPainters.count; p++) {
+                                    const pool = joinPainters.itemAt(p)?.pool ?? null;
+                                    for (let i = 0; pool && i < pool.count; i++) all.push(pool.objectAt(i));
+                                }
+                                return all;
                             }
                         }
                     }

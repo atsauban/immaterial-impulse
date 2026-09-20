@@ -101,3 +101,20 @@ function joinBandEdge(edge, extent, width, height) {
     if (edge === "bottom") return (Number(height) || 0) - e;
     return (Number(width) || 0) - e;
 }
+
+// The join records, many per screen (frame-pin-grammar.md §3): a map of
+// screen name to a map of element key ("dock", "barPopup",
+// "notification:<id>") to record. Returns a NEW outer and inner map with
+// `record` set under `key`, or with the key removed when `record` is null -
+// and the screen removed when nothing is left under it. New objects because
+// a `property var` signals on reassignment only; nothing here mutates.
+function withJoin(joins, screen, key, record) {
+    var name = String(screen || ""), k = String(key || "");
+    if (!name || !k) return joins || {};
+    var outer = Object.assign({}, joins || {});
+    var inner = Object.assign({}, outer[name] || {});
+    if (record) inner[k] = record; else delete inner[k];
+    if (Object.keys(inner).length) outer[name] = inner; else delete outer[name];
+    return outer;
+}
+
