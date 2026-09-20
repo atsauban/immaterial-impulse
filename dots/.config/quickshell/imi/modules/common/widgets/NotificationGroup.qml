@@ -56,13 +56,9 @@ MouseArea { // Notification group area
         root.notifications.forEach(notif => root.controller.cancelTimeout(notif));
     }
     // Unpinning is dismissal: back onto the band first where there is one,
-    // then the timeout, which slides it into the band.
+    // then into it, then the timeout.
     function unpin(): void {
         root.pinned = false;
-        if (root.joinsFrame && !cardJoin.fused) {
-            root.closing = true;
-            return;
-        }
         root.timeOutWithAnimation();
     }
     FrameJoin {
@@ -80,7 +76,10 @@ MouseArea { // Notification group area
         onMovingChanged: {
             if (cardJoin.moving || !root.closing) return;
             root.closing = false;
-            root.timeOutWithAnimation();
+            const then = root.pendingLeave;
+            root.pendingLeave = null;
+            root.leaveWithAnimation(root.leavesLeft,
+                then ?? (() => root.notifications.forEach(notif => root.controller.timeout(notif))));
         }
     }
     // The plate's colour: the band's while fused, the card's while released,
@@ -126,7 +125,10 @@ MouseArea { // Notification group area
         }
     }
     onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
-    Component.onCompleted: publishFrameJoin(frameJoinRecord)
+    Component.onCompleted: {
+        if (root.popup && root.joinsFrame) root.emergeFromBand();
+        publishFrameJoin(frameJoinRecord);
+    }
     Component.onDestruction: publishFrameJoin(null)
     property real padding: Appearance.spacing.space150
     implicitHeight: background.implicitHeight
@@ -156,10 +158,51 @@ MouseArea { // Notification group area
         destroyAnimation.running = true;
     }
     readonly property bool leavesLeft: root.frameEdge === "left"
+    // Arriving, a fused card EMERGES from its band: it starts inside the
+    // band and slides out to its place on the same curve it leaves by,
+    // instead of the list's pop-in (which scaled the frame's plate from
+    // its centre). `enterOffset` rides the margin the lift and the drag
+    // already ride.
+    property real enterOffset: 0
+    // Up while the card emerges, so the margin's own Behavior stands aside:
+    // a Behavior whose target moves every frame restarts every frame and
+    // never ticks - the card sat in the band until the run was over, then
+    // eased out late, with one frame at its final place before it started.
+    property bool entering: false
+    NumberAnimation {
+        id: enterAnim
+        target: root
+        property: "enterOffset"
+        to: 0
+        duration: Appearance.animation.elementMove.duration
+        easing.type: Appearance.animation.elementMove.type
+        easing.bezierCurve: Appearance.animation.elementMove.bezierCurve
+        onFinished: root.entering = false
+    }
+    function emergeFromBand(): void {
+        root.entering = true;
+        root.enterOffset = (root.leavesLeft ? -1 : 1) * ((root.ListView.view?.width ?? root.width) + root.dismissOvershoot);
+        enterAnim.restart();
+    }
+    // Dismissal, for a card the frame paints: a released card lands on the
+    // band first (the swallow), then the card slides into it, then `then` -
+    // the timeout or the discard. Outside frame mode there is nothing to
+    // animate against and `then` runs at once.
+    property var pendingLeave: null
+    function dismissWithAnimation(then): void {
+        if (!root.joinsFrame) {
+            if (then) then();
+            return;
+        }
+        if (!cardJoin.fused) {
+            root.pendingLeave = then ?? null;
+            root.closing = true;
+            return;
+        }
+        root.leaveWithAnimation(root.leavesLeft, then);
+    }
     function timeOutWithAnimation(): void {
-        const done = () => root.notifications.forEach(notif => root.controller.timeout(notif));
-        if (root.joinsFrame) root.leaveWithAnimation(root.leavesLeft, done);
-        else done();
+        root.dismissWithAnimation(() => root.notifications.forEach(notif => root.controller.timeout(notif)));
     }
 
     hoverEnabled: true
@@ -277,12 +320,12 @@ MouseArea { // Notification group area
         color: root.plateOnFrame ? "transparent"
             : popup ? Appearance.colors.colBackgroundSurfaceContainer : Appearance.colors.colLayer2
         radius: Appearance.rounding.normal
-        anchors.leftMargin: root.xOffset + root.liftOffset
+        anchors.leftMargin: root.xOffset + root.liftOffset + root.enterOffset
 
         Behavior on anchors.leftMargin {
             // Off while the join moves the card: a Behavior whose target
             // moves every frame restarts every frame and never ticks.
-            enabled: !dragManager.dragging && !cardJoin.moving
+            enabled: !dragManager.dragging && !cardJoin.moving && !root.entering
             NumberAnimation {
                 duration: Appearance.animation.elementMove.duration
                 easing.type: Appearance.animation.elementMove.type

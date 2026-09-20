@@ -401,8 +401,19 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn("else root.expirePopup(notificationId);", service)
         self.assertIn("function leaveWithAnimation(left, then): void", group)
         self.assertIn("function timeOutWithAnimation(): void", group)
+        # Review round 2: a fused card ARRIVES by emerging from its band (the
+        # list's pop-in is off for a fusing list), and a released card being
+        # dismissed lands first, then slides in, then times out or is
+        # discarded - the x on a card's last notification included, through
+        # the popup's own controller.
+        self.assertIn("function emergeFromBand(): void", group)
+        self.assertIn("if (root.popup && root.joinsFrame) root.emergeFromBand();", group)
+        self.assertIn("function dismissWithAnimation(then): void", group)
+        self.assertIn('animations: (root.frameEdge === "" && root.animateAppearance) ? [', _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))
+        self.assertIn("card.dismissWithAnimation(() => Notifications.discardNotification(id));", popup)
+        self.assertIn("controller: popupController", popup)
         self.assertIn("function cardFor(id): var", _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))
-        self.assertIn("if (card) card.leaveWithAnimation(root.frameEdge === \"left\", () => Notifications.timeoutNotification(id));", popup)
+        self.assertIn("if (card) card.dismissWithAnimation(() => Notifications.timeoutNotification(id));", popup)
         self.assertIn('removeToLeft: root.frameEdge === "left"', _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))
         self.assertIn('regionItems: listview.cardItems.filter(card => !(card.parent?.plateOnFrame ?? false))', popup)
         self.assertIn('readonly property string frameEdge: root.isRight ? "right" : root.isLeft ? "left" : ""', popup)

@@ -65,15 +65,30 @@ Scope {
         // box, which would take in the gaps between cards and frost bare
         // wallpaper right where each shadow falls. Pairs with rules.lua
         // turning the layerrule blur off for this namespace.
-        // A popup's time is up: a fused card slides into the band first, and
-        // the service removes it after (or on its own fallback if this window
-        // is not showing it).
+        // A popup's time is up: a card the frame paints leaves first (a
+        // released one lands, then slides into the band), and the service
+        // removes it after (or on its own fallback if this window is not
+        // showing it).
         Connections {
             target: Notifications
             function onPopupExpiring(id) {
                 const card = root.frameFused ? listview.cardFor(id) : null;
-                if (card) card.leaveWithAnimation(root.frameEdge === "left", () => Notifications.timeoutNotification(id));
+                if (card) card.dismissWithAnimation(() => Notifications.timeoutNotification(id));
                 else Notifications.timeoutNotification(id);
+            }
+        }
+        // The cards' controller: a discard that empties a card the frame
+        // paints (the x on its last notification) takes the same way out
+        // before the service drops it; any other discard is immediate.
+        NotificationController {
+            id: popupController
+            function discard(notif): void {
+                const id = notif.notificationId;
+                const card = root.frameFused ? listview.cardFor(id) : null;
+                if (card && (card.notifications?.length ?? 0) <= 1)
+                    card.dismissWithAnimation(() => Notifications.discardNotification(id));
+                else
+                    Notifications.discardNotification(id);
             }
         }
 
@@ -93,6 +108,7 @@ Scope {
             id: listview
             anchors.leftMargin: root.isLeft ? (root.frameFused ? FrameGeometry.bandExtent("left") : Appearance.spacing.space50) : 0
             anchors.rightMargin: root.isRight ? (root.frameFused ? FrameGeometry.bandExtent("right") : Appearance.spacing.space50) : 0
+            controller: popupController
             frameEdge: root.frameFused ? root.frameEdge : ""
             screenName: root.screen?.name ?? ""
             anchors.topMargin: (root.frameFused ? FrameGeometry.insets.top : 0) + Appearance.spacing.space50

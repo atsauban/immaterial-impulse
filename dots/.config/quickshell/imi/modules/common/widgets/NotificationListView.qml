@@ -18,6 +18,18 @@ StyledListView { // Scrollable window
     property string frameEdge: ""
     property string screenName: ""
     removeToLeft: root.frameEdge === "left"
+    // A card fusing to a band arrives by emerging from it (NotificationGroup
+    // `emergeFromBand`), not by the list's pop-in, which scaled the frame's
+    // plate from its centre.
+    add: Transition {
+        animations: (root.frameEdge === "" && root.animateAppearance) ? [
+            Appearance?.animation.elementMove.numberAnimation.createObject(this, {
+                properties: root.popin ? "opacity,scale" : "opacity",
+                from: 0,
+                to: 1,
+            }),
+        ] : []
+    }
 
     spacing: Appearance.spacing.space50
 
