@@ -562,13 +562,13 @@ Scope {
             }
 
             function retargetNow() {
-                // Content-driven: the card follows the content every frame,
-                // but after the layout has settled, not from inside its
-                // change. Read synchronously the Privacy card's column
-                // reported two heights a few ms apart on every frame of its
-                // collapse (339 then 204, 320 then 204, ...) and the card
-                // thrashed between them (measured).
-                if (overlayWindow.current?.contentDrivesSize) Qt.callLater(overlayWindow.retarget);
+                // Content-driven: the card follows the content in the same
+                // tick. (A deferral to the event loop was tried against what
+                // looked like a two-valued layout - it was the sandbox's
+                // grim, a screencast that flipped the Privacy card's "Screen"
+                // section on every frame grabbed - and it put the card's
+                // edge one frame behind the content: a shimmer.)
+                if (overlayWindow.current?.contentDrivesSize) overlayWindow.retarget();
                 else retargetTimer.restart();
             }
 
@@ -906,12 +906,16 @@ Scope {
                     animation: card.openAnim
                 }
                 // See StyledPopup.contentDrivesSize: a popup animating its
-                // own size must not be chased by the card - except on the
-                // way out, where the card is the shell's again: the Privacy
+                // own size must not be chased by the card - through the
+                // landing too, where the card still follows its collapsing
+                // content frame by frame (a Behavior restarted from every
+                // frame's write never left 384; traced) - but not the
+                // submerge, where the card is the shell's again: the Privacy
                 // card dismissed mid-collapse had its width snap to the
                 // parked square while its height was still shrinking, a thin
                 // drip under the bar (footage).
-                readonly property bool followsContent: (overlayWindow.current?.contentDrivesSize ?? false) && !overlayWindow.exiting
+                readonly property bool followsContent: (overlayWindow.current?.contentDrivesSize ?? false)
+                    && !(overlayWindow.exiting && !overlayWindow.landing)
                 Behavior on alongBar {
                     enabled: card.animate && !card.followsContent
                     animation: card.alongBarAnim

@@ -158,7 +158,14 @@ StyledPopup {
         Layout.fillWidth: true
         implicitHeight: reveal.shown ? revealColumn.implicitHeight : 0
         clip: true
-        visible: implicitHeight > 0.5
+        // Never hidden: a layout drops a hidden item's spacing in one step,
+        // and the card's bottom jumped the column's spacing at the end of
+        // every collapse (traced: 10 px in one frame among 2 px frames). The
+        // spacing above this block travels with its height instead - a
+        // negative top margin cancels it as the block closes - so the
+        // column's height is continuous through the whole reveal.
+        readonly property real fullHeight: Math.max(1, revealColumn.implicitHeight)
+        Layout.topMargin: -column.spacing * (1 - Math.min(1, reveal.implicitHeight / reveal.fullHeight))
         Behavior on implicitHeight {
             NumberAnimation {
                 duration: root.revealDuration
