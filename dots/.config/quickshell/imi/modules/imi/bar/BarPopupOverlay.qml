@@ -905,14 +905,19 @@ Scope {
                     enabled: card.animate
                     animation: card.openAnim
                 }
+                // See StyledPopup.contentDrivesSize: a popup animating its
+                // own size must not be chased by the card - except on the
+                // way out, where the card is the shell's again: the Privacy
+                // card dismissed mid-collapse had its width snap to the
+                // parked square while its height was still shrinking, a thin
+                // drip under the bar (footage).
+                readonly property bool followsContent: (overlayWindow.current?.contentDrivesSize ?? false) && !overlayWindow.exiting
                 Behavior on alongBar {
-                    // See StyledPopup.contentDrivesSize: a popup animating its
-                    // own size must not be chased by the card.
-                    enabled: card.animate && !(overlayWindow.current?.contentDrivesSize ?? false)
+                    enabled: card.animate && !card.followsContent
                     animation: card.alongBarAnim
                 }
                 Behavior on width {
-                    enabled: card.animate && !(overlayWindow.current?.contentDrivesSize ?? false)
+                    enabled: card.animate && !card.followsContent
                     animation: card.widthAnim
                 }
 
