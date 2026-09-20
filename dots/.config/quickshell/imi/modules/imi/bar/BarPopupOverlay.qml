@@ -292,8 +292,12 @@ Scope {
                     // fillet there had nothing to climb onto (seen live, the
                     // right end of the bar). A card wider than the stretch is
                     // centred on it.
+                    // In both states: clamped only while fused, the pin's
+                    // click sent the card back to the screen's clamp as it
+                    // lifted, and its still-forming neck hung past the plate's
+                    // corner for those frames (footage).
                     const span = overlayWindow.joinSpan();
-                    if (span && overlayWindow.wantsFused) {
+                    if (span) {
                         lo = Math.max(lo, span.min);
                         hi = Math.min(hi, span.max - cardWidth);
                         if (hi < lo) lo = hi = (span.min + span.max - cardWidth) / 2;
