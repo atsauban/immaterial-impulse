@@ -295,14 +295,15 @@ Scope {
                     required property string key
                     readonly property var record: surface.joins[painter.key] ?? null
                     readonly property string edge: painter.record?.edge ?? "bottom"
-                    // Inside paintLayer a ShaderEffect follows its own geometry
-                    // again (measured: a popup's field rode its lift with no
-                    // pinned box), and the popup's band edge moves with the
-                    // bar's lift - a pinned strip would remake it every frame -
-                    // so it takes the plate's own box, which stops at the
-                    // band's edge and so never fills the band side.
-                    readonly property bool pinned: painter.key !== "barPopup"
-                    readonly property rect strip: painter.pinned ? surface.joinStripFor(painter.edge, painter.key) : Qt.rect(0, 0, 0, 0)
+                    // Every field keeps its pinned strip. A popup's field was
+                    // let follow its own box for a while - it did, on the
+                    // sandbox's software rasteriser - and on the NVIDIA desktop
+                    // the plate sat a lift away from the bar while its record
+                    // said fused: the trap holds inside the layer there. The
+                    // strip starts at the frame's band, not the bar's edge, so
+                    // the bar's lift never remakes it; the band-side rows it
+                    // fills are the bar's plate, healed by the layer.
+                    readonly property rect strip: surface.joinStripFor(painter.edge, painter.key)
                     readonly property var field: fieldLoader.item
                     readonly property Instantiator pool: outlinePool
                     Loader {
