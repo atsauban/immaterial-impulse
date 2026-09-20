@@ -284,7 +284,12 @@ translucent against the band, it is the band.
 - **The contents ride the landing** (footage, the Discord card - click-opened, released): the
   sections' gate (`opening`) was `!exiting`, so at the first frame of a released card's exit the
   contents left and an empty plate landed and sank. A landing card is still open to its
-  contents; they leave with the submerge.
+  contents; they leave with the submerge. That was half of it: the Docker and Discord cards
+  live in a `Loader { active: popupOpen }` with `pinnedOpen: true`, and the click that closed
+  them unloaded the popup - content destroyed at the first frame of the exit, however the
+  overlay gated it. Now the popup asks to close (`pinnedOpen: root.popupOpen`) and the Loader
+  stays active until the overlay has released the content after the exit (`StyledPopup.held`,
+  set at the claim, cleared at `aboutToRelease`).
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
