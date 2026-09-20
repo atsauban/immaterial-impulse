@@ -353,7 +353,7 @@ ContentPage {
                     ]
                 }
                 ConfigSelectionArray {
-                    visible: FrameGeometry.enabled && Config.options.bar.cornerStyle !== 3
+                    property bool rowVisible: FrameGeometry.enabled && Config.options.bar.cornerStyle !== 3
                     text: Translation.tr("Bar state")
                     icon: "web_asset"
                     currentValue: Config.options.appearance.frame.bar ?? "auto"
