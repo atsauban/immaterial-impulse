@@ -566,9 +566,19 @@ Scope {
             // does and keeps the content, the input and the hover.
             readonly property bool joinsFrame: FrameGeometry.paintsBarPlate && !overlayWindow.barVertical
             // The bar's plate is itself a join on the frame and may be lifted
-            // off the band (frame-pin-grammar.md, the bar row); a popup fuses
-            // to the plate's inner edge wherever that is.
-            readonly property real barLift: GlobalStates.frameJoins[overlayWindow.modelData?.name ?? ""]?.bar?.gap ?? 0
+            // off the band (frame-pin-grammar.md, the bar row) or slid out by
+            // auto-hide; a popup fuses to the plate's inner edge wherever that
+            // is, read off the bar's record - the same number the frame paints
+            // the join against (Frame.qml joinBandEdgeFor). Measured from the
+            // bar's screen edge; the bar's thickness where there is no record.
+            // One numeric binding, no record property in between: this
+            // window publishes into the same map, and a var that took a new
+            // object on every publish was a binding loop.
+            readonly property real barInner: {
+                const b = GlobalStates.frameJoins[overlayWindow.modelData?.name ?? ""]?.bar ?? null;
+                if (!b) return overlayWindow.barThickness;
+                return overlayWindow.barEdge === "bottom" ? overlayWindow.height - b.plate.y : b.plate.y + b.plate.height;
+            }
             readonly property string popupsLook: String(Config.options.appearance.frame.popups ?? "auto")
             readonly property bool wantsFused: overlayWindow.popupsLook === "fused"
                 || (overlayWindow.popupsLook === "auto" && !(overlayWindow.current?.pinnedOpen ?? false))
@@ -583,7 +593,7 @@ Scope {
                 edge: overlayWindow.barEdge
                 attached: overlayWindow.joinAttached
                 travel: Appearance.sizes.elevationMargin
-                bandInset: overlayWindow.barThickness + overlayWindow.barLift
+                bandInset: overlayWindow.barInner
                 color: FrameGeometry.color
                 active: overlayWindow.joinsFrame
                 paintsLocally: false
@@ -710,8 +720,8 @@ Scope {
                 y: overlayWindow.barVertical
                     ? card.alongBar
                     : (overlayWindow.barEdge === "bottom"
-                        ? overlayWindow.height - overlayWindow.barThickness - overlayWindow.barLift - card.offBar - card.height
-                        : overlayWindow.barThickness + overlayWindow.barLift + card.offBar)
+                        ? overlayWindow.height - overlayWindow.barInner - card.offBar - card.height
+                        : overlayWindow.barInner + card.offBar)
                 // Clamped because the spatial tier overshoots past 1 and
                 // undershoots below 0 on the way back; the geometry keeps the
                 // overshoot deliberately, an alpha cannot use it.

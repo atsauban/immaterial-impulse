@@ -456,6 +456,20 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn("plateOnFrame: barJoin.drawsPlate && !barContent.centerOnly && Config.options.bar.showBackground", barWindow)
         self.assertIn("? DockGeometry.splitZoneExtra(barJoin.travel, !barRoot.joinAttached, barJoin.lift) : 0", barWindow)
         self.assertIn("zoneExtra: barRoot.releaseZoneExtra", barWindow)
+        # Auto-hide slides the plate out THROUGH the band: the band on the
+        # bar's edge goes with it (no line under a hidden bar), the bar's
+        # neck lets go over the last meniscus of the slide (a plate at the
+        # band's surface blended into a screen-wide strip), a popup joins
+        # the plate's inner edge - not the hairline - and the bar holds
+        # while its popup is up.
+        self.assertIn('inset: surface.barRecord?.edge === "top" ? surface.barBandInset : 0', frame)
+        self.assertIn("function joinBandEdgeFor(key, edge) {", frame)
+        self.assertIn("bandEdge: surface.joinBandEdgeFor(painter.key, joinField.edge)", frame)
+        self.assertIn("neck: barJoin.state.neck * slideHold, bulge: barJoin.state.bulge * slideHold", barWindow)
+        self.assertIn("|| ((GlobalStates.activeBarPopup?.popupVisible ?? false) && Config?.options.bar.autoHide.dismissPopups)", barWindow)
+        overlay = _strip((ROOT / "modules/imi/bar/BarPopupOverlay.qml").read_text())
+        self.assertIn("bandInset: overlayWindow.barInner", overlay)
+        self.assertNotIn("barThickness + overlayWindow.barLift", overlay)
         self.assertIn('GlobalStates.frameJoins[root.screen?.name ?? ""]?.bar?.zoneExtra ?? 0', _strip((ROOT / "modules/imi/notificationPopup/NotificationPopup.qml").read_text()))
         self.assertIn("readonly property var occupiedByMonitorName:", _strip((ROOT / "services/HyprlandData.qml").read_text()))
         states = _strip((ROOT / "GlobalStates.qml").read_text())

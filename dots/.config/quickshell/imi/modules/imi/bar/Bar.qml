@@ -71,6 +71,9 @@ Scope {
                 property bool mustShow: hoverRegion.containsMouse || superShow
                     || GlobalStates.editMode
                     || ((GlobalStates.mediaControlsOpen || GlobalStates.sysTrayOverflowOpen) && Config?.options.bar.autoHide.dismissPopups)
+                    // A widget's popup is fused to this bar's plate (the pin
+                    // grammar): the bar cannot leave while its card is up.
+                    || ((GlobalStates.activeBarPopup?.popupVisible ?? false) && Config?.options.bar.autoHide.dismissPopups)
                 property var thisMonitorData: HyprlandData.monitors.find(m => m.name === barRoot.screen?.name)
                 property bool monitorHasFullscreen: HyprlandData.workspaceById[thisMonitorData?.activeWorkspace?.id]?.hasfullscreen ?? false
                 property bool monitorHasSpecialOpen: (thisMonitorData?.specialWorkspace?.name ?? "") !== ""
@@ -272,14 +275,27 @@ Scope {
                     // window sits at the screen's edge less its own margin.
                     barContent.x; barContent.y; barContent.width; barContent.height; p.x; p.y; p.width; p.height;
                     const at = p.mapToItem(null, 0, 0);
-                    const oy = Config.options.bar.bottom
+                    const bottom = Config.options.bar.bottom;
+                    const oy = bottom
                         ? barRoot.screen.height - barRoot.height - Appearance.sizes.barSurfaceMargin
                         : Appearance.sizes.barSurfaceMargin;
+                    // How far the plate reaches past the band's inner edge.
+                    // Auto-hide slides the plate out through the band, and a
+                    // fused plate whose inner edge sits AT the band's surface
+                    // is two surfaces at one distance from every row below:
+                    // the meniscus blends them into a strip the width of the
+                    // screen (measured, 12 rows under a hidden bar). So the
+                    // neck lets go over the last meniscus of the slide, and a
+                    // plate past the band carries none.
+                    const reach = bottom
+                        ? (barRoot.height - barRoot.bandInsetHere) - at.y
+                        : at.y + p.height - barRoot.bandInsetHere;
+                    const slideHold = Math.max(0, Math.min(1, reach / Math.max(1, barJoin.meniscus)));
                     return {
                         edge: FrameGeometry.barEdge,
                         plate: { x: at.x, y: at.y + oy, width: p.width, height: p.height },
                         radii: { topLeft: p.radius, topRight: p.radius, bottomRight: p.radius, bottomLeft: p.radius },
-                        gap: barJoin.state.gap, neck: barJoin.state.neck, bulge: barJoin.state.bulge,
+                        gap: barJoin.state.gap, neck: barJoin.state.neck * slideHold, bulge: barJoin.state.bulge * slideHold,
                         meniscus: barJoin.meniscus, blendPerPixel: barJoin.blendPerPixel,
                         climbFraction: barJoin.climbFraction, color: FrameGeometry.color,
                         // What the bar reserves beyond its settled zone while

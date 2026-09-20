@@ -62,7 +62,11 @@ Scope {
         // Every edge is a hairline band, the bar's included: the bar's plate
         // is a join ON it (frame-pin-grammar.md), painted like the dock's.
         readonly property real extent: FrameGeometry.bandExtent(band.edge)
-        readonly property real inset: 0
+        // How far the band's edge side sits from the screen edge: nothing,
+        // except on the bar's edge while the bar slides out (auto-hide) -
+        // the band goes with the plate, as it did when it WAS the plate, so
+        // a hidden bar leaves the screen's own corners and no line.
+        property real inset: 0
         // What of it is on screen, measured from the screen edge inward.
         readonly property real visibleExtent: Math.max(0, Math.min(band.extent, band.extent + band.inset))
         // Nothing to paint for a fullscreen window: transparent, never
@@ -121,8 +125,10 @@ Scope {
                     bottom: true
                 }
 
-                Band { id: topBand;    edge: "top";    hidden: screenScope.hidden }
-                Band { id: bottomBand; edge: "bottom"; hidden: screenScope.hidden }
+                Band { id: topBand;    edge: "top";    hidden: screenScope.hidden
+                       inset: surface.barRecord?.edge === "top" ? surface.barBandInset : 0 }
+                Band { id: bottomBand; edge: "bottom"; hidden: screenScope.hidden
+                       inset: surface.barRecord?.edge === "bottom" ? surface.barBandInset : 0 }
                 Band { id: leftBand;   edge: "left";   hidden: screenScope.hidden
                        topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
                 Band { id: rightBand;  edge: "right";  hidden: screenScope.hidden
@@ -154,6 +160,23 @@ Scope {
                 // done, so the fields' changes ask for a repaint from the
                 // event loop like the Timer did.
                 property var joins: ({})
+                // The bar's own record, when the frame paints the bar's plate
+                // (frame-pin-grammar.md, the bar row): the plate's inner edge
+                // is where a bar popup fuses, and the band on the bar's edge
+                // slides out with the plate.
+                readonly property var barRecord: surface.joins.bar ?? null
+                readonly property real barInnerEdge: {
+                    const b = surface.barRecord;
+                    if (!b) return 0;
+                    return b.edge === "bottom" ? b.plate.y : b.plate.y + b.plate.height;
+                }
+                readonly property real barBandInset: {
+                    const b = surface.barRecord;
+                    if (!b) return 0;
+                    const band = b.edge === "bottom" ? bottomBand : topBand;
+                    const fromEdge = b.edge === "bottom" ? surface.height - surface.barInnerEdge : surface.barInnerEdge;
+                    return Math.min(0, fromEdge - band.extent);
+                }
                 // The keys, as a model the painters follow: diffed rather than
                 // reassigned, so a notification arriving does not rebuild the
                 // dock's field beside it.
@@ -179,6 +202,25 @@ Scope {
                     const extent = edge === "left" ? leftBand.extent : edge === "right" ? rightBand.extent
                                  : edge === "top" ? topBand.extent : bottomBand.extent;
                     return Geo.joinBandEdge(edge, extent, surface.width, surface.height);
+                }
+                // What a record joins: the band on its edge, except a bar
+                // popup, which joins the bar's PLATE - on its inner edge,
+                // wherever the lift or the auto-hide slide put it. Joined to
+                // the hairline instead, its plate climbed up through the bar
+                // to the screen edge (seen live: a black arch over the clock,
+                // and a card hanging from nothing once the bar had hidden).
+                // The bar's own join meets its band no deeper than the plate
+                // reaches: sliding out, the plate passes the band's edge, and
+                // a field asked to join a plate that is beyond its band filled
+                // the band side down to where the plate had been (measured: a
+                // strip under a hidden bar).
+                function joinBandEdgeFor(key, edge) {
+                    const b = surface.barRecord;
+                    if (key === "barPopup" && b && b.edge === edge) return surface.barInnerEdge;
+                    const band = surface.bandEdgeFor(edge);
+                    if (key === "bar" && b && b.edge === edge)
+                        return edge === "bottom" ? Math.max(band, surface.barInnerEdge) : Math.min(band, surface.barInnerEdge);
+                    return band;
                 }
 
                 // The strip a field paints in: the band's edge, the whole
@@ -237,7 +279,7 @@ Scope {
                             radiusTopRight: joinField.j?.radii.topRight ?? 0
                             radiusBottomRight: joinField.j?.radii.bottomRight ?? 0
                             radiusBottomLeft: joinField.j?.radii.bottomLeft ?? 0
-                            bandEdge: surface.bandEdgeFor(joinField.edge)
+                            bandEdge: surface.joinBandEdgeFor(painter.key, joinField.edge)
                             color: joinField.j?.color ?? "transparent"
                             gap: joinField.j?.gap ?? 0
                             neck: joinField.j?.neck ?? 0
