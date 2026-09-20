@@ -633,7 +633,12 @@ Scope {
                 if (!b) { overlayWindow.plateSpan = null; return; }
                 const bottom = overlayWindow.barEdge === "bottom";
                 const rl = bottom ? b.radii.topLeft : b.radii.bottomLeft, rr = bottom ? b.radii.topRight : b.radii.bottomRight;
-                const span = { min: b.plate.x + rl, max: b.plate.x + b.plate.width - rr };
+                // ...less the fillet's own spread along the plate (about half
+                // the meniscus at the band): the card's edge stopped at the
+                // radius, and the fillet beyond it climbed onto the corner's
+                // curve and ended in the air (seen live, twice).
+                const spread = cardJoin.meniscus * 0.5;
+                const span = { min: b.plate.x + rl + spread, max: b.plate.x + b.plate.width - rr - spread };
                 const was = overlayWindow.plateSpan;
                 if (!was || was.min !== span.min || was.max !== span.max) overlayWindow.plateSpan = span;
             }
