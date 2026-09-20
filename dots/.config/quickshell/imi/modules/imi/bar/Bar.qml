@@ -354,13 +354,20 @@ Scope {
                     const bottom = Config.options.bar.bottom;
                     const oy = barRoot.screenOriginY();
                     const R = Appearance.rounding.windowRounding, r = barRoot.plateRadius;
+                    // A card wider than its island: the island stands on it
+                    // as a tab, and its corners on the card square off by the
+                    // hold (GlobalStates.barPopupTab, from the overlay).
+                    const tab = GlobalStates.barPopupTab;
+                    const tabScreen = tab && tab.screen === (barRoot.screen?.name ?? "") ? tab : null;
                     for (const isl of barContent.frameIslandItems) {
                         if (!isl || !isl.visible) continue;
                         isl.x; isl.y; isl.width; isl.height;
                         const at = isl.mapToItem(null, 0, 0);
                         const section = isl.sectionName;
                         const slideHold = Math.max(0, Math.min(1, barRoot.plateReach(at, isl.height) / barRoot.slideHoldReach));
-                        const sideL = section === "left" ? r : R, sideR = section === "right" ? r : R;
+                        const onCard = tabScreen && tabScreen.section === section ? tabScreen : null;
+                        const sideL = (section === "left" ? r : R) * (1 - (onCard?.left ?? 0));
+                        const sideR = (section === "right" ? r : R) * (1 - (onCard?.right ?? 0));
                         out["barIsland:" + section] = {
                             edge: FrameGeometry.barEdge,
                             section: section,

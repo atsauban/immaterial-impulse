@@ -11,6 +11,15 @@ own repo; the installer pins which revision it builds.
 
 ## [Unreleased]
 
+### Fixed
+- Frame mode, Islands style: a bar widget's popup wider than its island now lines up flush
+  with a corner island's outer edge (centred under the middle one) and the island stands on
+  it as a tab, its corners on the card squared off, instead of a pill resting on the card
+  with a notch under each corner. The corners round back as the card sinks away.
+- Frame mode, Islands style: an island the frame paints no longer blurs its backdrop twice
+  (its body read a shade lighter than its corners), and notification cards keep clear of a
+  floating island's lift like they do the plate's.
+
 ## [1.3.0] — 2026-09-21
 
 ### Added

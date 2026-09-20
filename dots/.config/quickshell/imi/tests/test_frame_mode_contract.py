@@ -510,7 +510,7 @@ class FrameModeContract(unittest.TestCase):
         # corner radii, and carries no neck where it overhangs a narrower
         # island (the span is taken up with barInner, never bound).
         self.assertIn("const span = overlayWindow.joinSpan();", overlay)
-        self.assertIn("if (hi < lo) lo = hi = Math.max(screenLo, Math.min((span.min + span.max - cardWidth) / 2, screenHi));", overlay, "centred on its island, still inside the screen")
+        self.assertIn("const edges = overlayWindow.plateEdges ?? span;", overlay, "a card wider than its island lines up with the island's edges (the tab), inside the screen")
         self.assertIn("neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck * grown,", overlay, "the fillets are as tall as the card")
         self.assertIn("if (card.height <= 3) return null;", overlay, "no stalk under the bar for a collapsed card")
         self.assertIn("if (!was || was.min !== span.min || was.max !== span.max) overlayWindow.plateSpan = span;", overlay)
@@ -531,6 +531,39 @@ class FrameModeContract(unittest.TestCase):
         self.assertNotIn("frameBars", states)
         self.assertNotIn("barPlate", frame)
         self.assertIn('property string bar: "auto"', _strip((ROOT / "modules/common/Config.qml").read_text()))
+
+    def test_an_island_narrower_than_its_card_stands_on_it_as_a_tab(self):
+        # frame-pin-grammar.md §7, the tab: a card wider than its island lines
+        # up flush with a corner island's outer edge (centred under the centre
+        # one), and every corner where the two meet squares off by how far the
+        # card still runs past it - so the exit's collapse rounds them back as
+        # the card's edge leaves, instead of a corner held square over nothing.
+        overlay = _strip((ROOT / "modules/imi/bar/BarPopupOverlay.qml").read_text())
+        bar = _strip((ROOT / "modules/imi/bar/Bar.qml").read_text())
+        states = _strip((ROOT / "GlobalStates.qml").read_text())
+        self.assertIn("property var plateEdges: null", overlay)
+        self.assertIn('const flush = overlayWindow.islandSection === "right" ? edges.max - cardWidth', overlay)
+        self.assertIn("lo = hi = Math.max(0, Math.min(flush, overlayWindow.width - cardWidth));", overlay)
+        self.assertIn("readonly property real tabBase:", overlay)
+        self.assertIn("return Math.max(0, Math.min(1, 1 + over / Appearance.rounding.windowRounding));", overlay, "an island's corner squares by how far the card runs past it")
+        self.assertIn("readonly property real tabHoldLeft: overlayWindow.tabBase * overlayWindow.tabHoldOver((overlayWindow.plateEdges?.min ?? 0) - card.x)", overlay)
+        self.assertIn("readonly property real tabHoldRight: overlayWindow.tabBase * overlayWindow.tabHoldOver((card.x + card.width) - (overlayWindow.plateEdges?.max ?? 0))", overlay)
+        self.assertIn("return overlayWindow.tabBase * Math.max(0, 1 - Math.abs(distance) / Math.max(1, card.radius));", overlay, "the card's corner squares under the island's edge")
+        self.assertIn("GlobalStates.barPopupTab = { screen: name, section: overlayWindow.islandSection, left: l, right: r };", overlay)
+        self.assertIn("radii: { topLeft: bottom ? card.radius : heldL,", overlay)
+        # The hold travels on its own property, never on the join records: the
+        # bar's records read it and the overlay reads the bar's records.
+        self.assertIn("property var barPopupTab: null", states)
+        self.assertNotIn("barPopupTab", _strip((ROOT / "modules/imi/frame/Frame.qml").read_text()))
+        self.assertIn("const tab = GlobalStates.barPopupTab;", bar)
+        self.assertIn('const sideL = (section === "left" ? r : R) * (1 - (onCard?.left ?? 0));', bar)
+        self.assertIn('const sideR = (section === "right" ? r : R) * (1 - (onCard?.right ?? 0));', bar)
+        # ...and an island the frame paints stands its own blur region down,
+        # or the frame's paint is blurred twice under it (a lighter body next
+        # to a square corner the frame painted outside the rounded region).
+        content = _strip((ROOT / "modules/imi/bar/BarContent.qml").read_text())
+        for name in ("left", "center", "right"):
+            self.assertIn(f"readonly property bool {name}IslandPainted: {name}Island.visible && !{name}Island.onFrame", content)
 
     def test_the_family_gates_the_surface_on_the_option(self):
         fam = FAMILY.read_text()

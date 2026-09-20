@@ -329,11 +329,20 @@ Scope {
                     if (span) {
                         lo = Math.max(lo, span.min);
                         hi = Math.min(hi, span.max - cardWidth);
-                        // A card wider than the stretch is centred on it - and
-                        // the screen still bounds it: centred on a corner
-                        // island, the Privacy card sat flush with the screen's
-                        // edge (seen live).
-                        if (hi < lo) lo = hi = Math.max(screenLo, Math.min((span.min + span.max - cardWidth) / 2, screenHi));
+                        // A card wider than the stretch: the plate stands on
+                        // it as a tab (cardOverhangs) - flush with a corner
+                        // island's outer edge, centred under the centre one or
+                        // the whole plate - and the screen bounds it. Centred
+                        // on the flat and bounded by the released card's
+                        // margin, the card's edge stopped 13 px short of the
+                        // island's, a notch under the island's outer corner.
+                        if (hi < lo) {
+                            const edges = overlayWindow.plateEdges ?? span;
+                            const flush = overlayWindow.islandSection === "right" ? edges.max - cardWidth
+                                : overlayWindow.islandSection === "left" ? edges.min
+                                : (edges.min + edges.max - cardWidth) / 2;
+                            lo = hi = Math.max(0, Math.min(flush, overlayWindow.width - cardWidth));
+                        }
                     }
                     card.alongBar = Math.max(lo, Math.min(base, hi));
                 }
@@ -671,19 +680,68 @@ Scope {
             }
             readonly property Item island: overlayWindow.islandsMode ? overlayWindow.islandFor(overlayWindow.current?.hoverTarget ?? null) : null
             readonly property string islandSection: overlayWindow.island?.sectionName ?? ""
-            onIslandSectionChanged: overlayWindow.takeBarInner()
+            onIslandSectionChanged: {
+                overlayWindow.takeBarInner();
+                overlayWindow.publishTab();
+            }
             // The flat stretch of the plate the card fuses to - the bar's plate
             // or its section's island - between the inner-edge corner radii,
             // in this window's x; null where nothing is joined. Taken up with
             // barInner (below), never bound: this window publishes into the
             // map it would read.
             property var plateSpan: null
+            // The plate's whole extent along the bar, corners included - what
+            // a card wider than the plate lines its own edge up with.
+            property var plateEdges: null
             function joinSpan() { return overlayWindow.joinsFrame ? overlayWindow.plateSpan : null; }
-            // An island narrower than the card: the card sits centred on it
-            // and carries no neck - fillets at corners past the island's ends
-            // would climb onto nothing.
+            // An island narrower than the card: the card carries no neck -
+            // fillets at corners past the island's ends would climb onto
+            // nothing - and the island stands on it as a TAB instead: the card
+            // flush with a corner island's outer edge, centred under the
+            // centre one, and every corner where the two meet square (the
+            // island's away-from-band corners, Bar.qml; the card's corner on
+            // the flush side, below), so the pair is one silhouette rather
+            // than a pill resting on a card with a notch at each end (seen
+            // in the sandbox: Resources alone on the right island).
             readonly property bool cardOverhangs: overlayWindow.plateSpan !== null
                 && (overlayWindow.plateSpan.max - overlayWindow.plateSpan.min) < card.width
+            // How much of the tab is held, per corner, from the geometry
+            // alone: whole while the card is fused and grown, and gone as the
+            // card lifts off or sinks away (tabBase); and for each corner where
+            // the two meet, by how far the card still runs past it - flush or
+            // beyond is square, a corner the card ends a window-rounding
+            // short of is round again. The exit collapses the card's width
+            // toward its widget while it sinks, so its edge leaves the
+            // island's; a hold read off cardOverhangs alone kept the island's
+            // corners square over nothing until the card was gone (burst).
+            readonly property real tabBase: cardJoin.travel <= 0 || overlayWindow.plateEdges === null ? 0
+                : (1 - Math.min(1, cardJoin.lift / cardJoin.travel))
+                  * Math.pow(Math.min(1, card.height / Math.max(1, cardJoin.meniscus)), 2)
+            // An island's corner over the card: `over` is how far the card
+            // runs past it (0 flush, negative short).
+            function tabHoldOver(over: real): real {
+                return Math.max(0, Math.min(1, 1 + over / Appearance.rounding.windowRounding));
+            }
+            readonly property real tabHoldLeft: overlayWindow.tabBase * overlayWindow.tabHoldOver((overlayWindow.plateEdges?.min ?? 0) - card.x)
+            readonly property real tabHoldRight: overlayWindow.tabBase * overlayWindow.tabHoldOver((card.x + card.width) - (overlayWindow.plateEdges?.max ?? 0))
+            // The card's own corner under an island's: square while the
+            // island's edge is within the corner's radius of it, else the
+            // island's square corner would stand over the card's rounding.
+            function cardHoldAt(distance: real): real {
+                return overlayWindow.tabBase * Math.max(0, 1 - Math.abs(distance) / Math.max(1, card.radius));
+            }
+            readonly property real cardHoldLeft: overlayWindow.plateEdges === null ? 0 : overlayWindow.cardHoldAt(overlayWindow.plateEdges.min - card.x)
+            readonly property real cardHoldRight: overlayWindow.plateEdges === null ? 0 : overlayWindow.cardHoldAt(overlayWindow.plateEdges.max - (card.x + card.width))
+            function publishTab() {
+                const name = overlayWindow.modelData?.name ?? "";
+                const l = overlayWindow.tabHoldLeft, r = overlayWindow.tabHoldRight;
+                const held = (l > 0.001 || r > 0.001) && overlayWindow.islandSection !== "";
+                const mine = GlobalStates.barPopupTab?.screen === name;
+                if (held) GlobalStates.barPopupTab = { screen: name, section: overlayWindow.islandSection, left: l, right: r };
+                else if (mine) GlobalStates.barPopupTab = null;
+            }
+            onTabHoldLeftChanged: overlayWindow.publishTab()
+            onTabHoldRightChanged: overlayWindow.publishTab()
             // The plate moved (the bar's lift, its slide) or the card's state
             // turned: place the card again on what it now joins - never while
             // it is leaving. A pinned card dismissed turns fused as it goes,
@@ -713,7 +771,10 @@ Scope {
                 const b = joins?.bar ?? (overlayWindow.islandsMode ? joins?.["barIsland:" + overlayWindow.islandSection] ?? null : null);
                 overlayWindow.barInner = !b ? overlayWindow.barThickness
                     : overlayWindow.barEdge === "bottom" ? overlayWindow.height - b.plate.y : b.plate.y + b.plate.height;
-                if (!b) { overlayWindow.plateSpan = null; return; }
+                if (!b) { overlayWindow.plateSpan = null; overlayWindow.plateEdges = null; return; }
+                const edges = { min: b.plate.x, max: b.plate.x + b.plate.width };
+                const hadEdges = overlayWindow.plateEdges;
+                if (!hadEdges || hadEdges.min !== edges.min || hadEdges.max !== edges.max) overlayWindow.plateEdges = edges;
                 const bottom = overlayWindow.barEdge === "bottom";
                 const rl = bottom ? b.radii.topLeft : b.radii.bottomLeft, rr = bottom ? b.radii.topRight : b.radii.bottomRight;
                 // ...less the fillet's own spread along the plate (about half
@@ -767,12 +828,18 @@ Scope {
                 // timer ran out (measured, ~200 ms).
                 if (card.height <= 3) return null;
                 const grown = Math.pow(Math.min(1, card.height / Math.max(1, cardJoin.meniscus)), 2);
+                // The card's corners at the band square off under an
+                // island's edge (cardHoldLeft/Right, the tab).
+                const heldL = card.radius * (1 - overlayWindow.cardHoldLeft), heldR = card.radius * (1 - overlayWindow.cardHoldRight);
+                const bottom = overlayWindow.barEdge === "bottom";
                 return {
                     edge: overlayWindow.barEdge,
                     section: overlayWindow.islandSection,
                     plate: { x: card.x, y: card.y, width: card.width, height: card.height },
-                    radii: { topLeft: card.radius, topRight: card.radius,
-                             bottomRight: card.radius, bottomLeft: card.radius },
+                    radii: { topLeft: bottom ? card.radius : heldL,
+                             topRight: bottom ? card.radius : heldR,
+                             bottomRight: bottom ? heldR : card.radius,
+                             bottomLeft: bottom ? heldL : card.radius },
                     gap: cardJoin.state.gap,
                     neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck * grown,
                     bulge: overlayWindow.cardOverhangs ? 0 : cardJoin.state.bulge * grown,
@@ -790,7 +857,10 @@ Scope {
                 overlayWindow.takeBarInner();
                 publishFrameJoin(frameJoinRecord);
             }
-            Component.onDestruction: publishFrameJoin(null)
+            Component.onDestruction: {
+                publishFrameJoin(null);
+                if (GlobalStates.barPopupTab?.screen === (overlayWindow.modelData?.name ?? "")) GlobalStates.barPopupTab = null;
+            }
 
             SequentialAnimation {
                 id: contentEnter

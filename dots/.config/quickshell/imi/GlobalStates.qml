@@ -100,6 +100,14 @@ Singleton {
     // floats a gap off the frame's band whatever the workspace holds; unpinned
     // it follows `appearance.frame.bar`. One pin for every screen's bar.
     property bool barPinned: false
+    // A bar widget's card wider than the island it is fused to: the island
+    // stands on the card as a tab, and its corners on the card square off by
+    // `left`/`right` (BarPopupOverlay.tabHoldLeft/Right, Bar.qml
+    // frameIslandRecords). Set by
+    // the overlay, never bound to the join records - the bar's records read
+    // this and the overlay reads the bar's records, and a value carried on
+    // the records would be a loop. null while no card overhangs.
+    property var barPopupTab: null
     // The active Wallpaper Engine scene's content aspect (w/h), published by
     // Background from the live surface's real content size - which the crop
     // picker needs because the scene's authored aspect is not the preview

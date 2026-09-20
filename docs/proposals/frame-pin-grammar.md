@@ -312,4 +312,27 @@ translucent against the band, it is the band.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
-
+- **The tab** (sandbox, Resources alone on the right island; the Privacy card on a corner
+  island live): an island narrower than its card. The card had been centred on the island's
+  flat and carried no neck (fillets past the island's ends would climb onto nothing), which
+  left a pill resting on a card with a notch under each of the island's corners, and 13 px of
+  island past the card's edge on the outer side. Now the island stands on the card as a tab:
+  the card lines up flush with a corner island's outer edge (centred under the centre one,
+  bounded by the screen), and every corner where the two meet squares off - the island's
+  away-from-band corners (Bar.qml's records, by `GlobalStates.barPopupTab`) and the card's
+  corner under the island's edge (the overlay's record) - so the pair is one silhouette. The
+  hold is per corner and from geometry alone: whole while the card is fused and grown, and
+  for each corner by how far the card still runs past it (flush or beyond square, a
+  window-rounding short round again). A first cut held every corner on `cardOverhangs`, and
+  the exit - which collapses the card's width toward its widget while it sinks - left the
+  island's corners square over nothing until the card was gone (burst). The hold travels on
+  its own property, never on the join records: the bar's records read it and the overlay
+  reads the bar's records, and a value on the records would be a loop.
+- **An island the frame paints stands its own blur region down** (the same sandbox shot,
+  measured by pixel): the bar window kept its rounded island region up while the frame
+  painted the island, so the island's body was blurred twice and read a shade lighter than a
+  square corner the frame painted outside that rounded region - the dock and the bar's plate
+  already gate theirs on `drawsPlate` / `plateOnFrame`; the islands now gate on `onFrame`.
+- **Notification room in the Islands style**: `roomOn` read the released bar's zone from the
+  plate record only; in the Islands style there is none, so a floating island's lift went
+  uncounted and a card sat under it. Any island record carries the same `zoneExtra`.
