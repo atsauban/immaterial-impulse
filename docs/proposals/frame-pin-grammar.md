@@ -1,8 +1,8 @@
 # Frame mode, stage 4: the pin grammar
 
-**Status:** landed 2026-09-20, slices 1-4 (1ebb25a7a records map, 190d1d125 bar popups, ef5da6b11 notifications, 2bf416bab the dock's "auto"); what was measured landing each is in §7. Stages 0-3 are in
+**Status:** landed 2026-09-20, slices 1-4 (1ebb25a7a records map, 190d1d125 bar popups, ef5da6b11 notifications, 2bf416bab the dock's "auto") and the bar row ("feat(frame): the bar's plate is a join on its band"); what was measured landing each is in §7. Stages 0-3 are in
 `frame-one-surface.md` (one surface per screen; the frame paints the dock's plate and, in the
-Hug bar style, the bar's plate as its band - 720f815f7 "release: 1.2.0").
+Hug bar style, the bar's plate - 720f815f7 "release: 1.2.0").
 
 ## 1. The rule
 
@@ -32,7 +32,7 @@ Settings > Appearance > Frame gets one row per surface to override the default.
 | bar widget popup | click (`StyledPopup.pinnedOpen`, tray menus, Docker/Discord plugins) | released, as today | already pinned | close: swallow into the band, submerge |
 | notification | arrives (`Notifications.popupList`), emerging from its band | fused to the band on its edge (`*_right`, `*_left`; the centre positions stay released) | a **Pin** button, or a drag away from the band past a threshold: releases it and cancels its timeout - it persists. Unpin (the button, or a drag back that ends nearer the band than the pinned rest) fuses it back and restarts its clock | close (the x) or timeout: a released card lands first, then slides into the band. A drag toward the band is never stopped: the join forms with the approach, past the edge the card goes under, and let go there it slides the rest of the way in and closes. Away from the band the pull is elastic to a limit and springs back short of the threshold |
 | dock | reveal at the edge (unpinned) | fused: reveals out of the band and hides back into it | the dock's pin: released, reserves its edge (`DockReservation`) | unpin: lands, fuses; then hides into the band when the pointer leaves |
-| bar | always on | Hug style: the bar IS the band (fused, 26328624c); other styles: islands (released) | the style | auto-hide in frame mode is a split (out of scope here, frame-one-surface.md §7) |
+| bar | always on | Hug style: fused to the hairline band on its edge while the monitor's active workspace holds no window; released - lifted by the compositor's gap, inset from the side bands by the same, corners rounding with the lift - once a window is there (`FrameGeometry.barAttachedFor`; `appearance.frame.bar` "auto"/"attached"/"floating" overrides); other styles: islands | `bar togglePin` over IPC (`GlobalStates.barPinned`): pinned is released whatever the workspace holds; unpin returns to the workspace rule | the exclusive zone never moves - the lift lives inside the gap the compositor already leaves; bar popups fuse to the plate's inner edge wherever the lift put it; auto-hide in frame mode is still a split (out of scope, frame-one-surface.md §7) |
 
 Two things the table changes on purpose:
 
@@ -140,6 +140,19 @@ translucent against the band, it is the band.
 - **Not driven in the sandbox:** the click that pins (the nested compositor has no
   pointer-button dispatcher). The release and the landing are verified as the fused/released
   geometry pair and by the dock's identical physics; the mid-motion look is the user's review.
+- **The bar's row** (decided at review: "pin state + occupancy default"). The bar is always on,
+  so its grammar needs a second input besides the pin: the workspace. Fused while the monitor's
+  active workspace is empty - the frame is then the whole picture and the bar is its edge - and
+  released once a window is there, the plate an island above the tiles; the pin forces released.
+  Measured in the sandbox through the published record: pin 0 -> 5 px lift (the sandbox's
+  compositor gap) with the side insets and the corner radius riding it, unpin back in three
+  samples, a launched window releases, its close fuses back. The band on the bar's edge stays the
+  hairline (`bandExtent` no longer returns 0 there; the plate covers it fused, so nothing shows
+  twice). The travel is the compositor's outer gap, so the exclusive zone never moves and no
+  window re-tiles for the state change. Not driven: a hover popup against the lifted plate - the
+  nested compositor's window was parked on a closed special workspace, so it rendered nothing
+  and pointer motion dispatched inside it opened no popup; the offset is one term
+  (`BarPopupOverlay.barLift`) on the fused card's y and its `bandInset`.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.

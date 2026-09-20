@@ -469,7 +469,7 @@ a tween, so an icon arriving moves plate, meniscus and outline on one curve. On 
 the field's box is PINNED to the band strip (`FrameJoinField.pinnedBox`) and re-made when the strip
 changes: a ShaderEffect directly under that window's content item paints its uniforms but never
 its own position or size change (measured; frame-one-surface.md stage 2), so the plate travels
-inside a box that never moves; and the frame takes `GlobalStates.frameJoins`/`frameBars` up from
+inside a box that never moves; and the frame takes `GlobalStates.frameJoins` up from
 `Qt.callLater`, not a binding - a repaint asked for from inside another window's sync is only noted
 under the threaded render loop, and the plate froze until a random later frame. **Stage 4 is the pin grammar** (`docs/proposals/frame-pin-grammar.md`): pinned means
 released, unpinned means fused, for the dock (`frame.dock` "auto"), a bar widget's popup
@@ -481,11 +481,18 @@ frame at every cut (60 fps capture) - one painter in both states, and the floati
 border is the stated cost. Under fullscreen the dock paints itself (`paintsLocally` follows
 `fullscreenOnThisMonitor`), since a Top surface is buried there.
 **Stage 3: where the bar's plate covers its strip (Hug, painted - `FrameGeometry.paintsBarPlate`),
-the frame's band on that edge IS the plate**: `Bar.qml` publishes thickness and the plate's edge-side
-inset (surface margin + the content's animated auto-hide margin) into `GlobalStates.frameBars[screen]`,
-`BarContent` paints no plate (`plateOnFrame`), and `Frame.qml`'s side bands inset by the horizontal
-edges' DRAWN extents rather than by `bandMargins` - so the strip and the side bands meeting at the top
-corners are one shape. Other bar styles keep their own plates: islands inside the frame, not the frame.
+the frame paints the bar's plate as a JOIN on the band of its edge** - first as the band itself
+("feat(frame): the frame's band on the bar's edge is the bar's plate"), then under the pin grammar as
+a record like the dock's ("feat(frame): the bar's plate is a join on its band"): `Bar.qml` owns a
+`FrameJoin` on its plate and publishes it under `"bar"`, `BarContent` paints no plate (`plateOnFrame`,
+set by the bar's window), the band on the bar's edge stays the hairline, and the plate is FUSED to it
+(on the hairline, between the side bands) or RELEASED (lifted by the compositor's gap, inset from the
+side bands by the same, corners rounding with the lift - an island). `FrameGeometry.barAttachedFor(pinned,
+occupied)` decides from `frame.bar`: "auto" is fused while the monitor's active workspace has no window
+and nothing pins the bar (`HyprlandData.occupiedByMonitorName`, `GlobalStates.barPinned`, `bar togglePin`
+over IPC), "attached"/"floating" force one look. The exclusive zone never moves: the lift lives inside
+the gap the compositor already leaves. A bar popup fuses to the plate's inner edge wherever the lift put
+it (`BarPopupOverlay.barLift`). Other bar styles keep their own plates: islands inside the frame.
 ("feat(frame): one surface per screen draws the four bands"),
 ("fix(frame): the band's blur is scoped like the bar's, so the two stop being two"),
 ("feat(frame): the frame's surface paints the dock's plate and neck"),

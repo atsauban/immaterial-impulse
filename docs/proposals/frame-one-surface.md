@@ -205,7 +205,10 @@ no double paint, and the tab-to-pill colour rides the plate's own Behavior throu
 after the pinned box, a pinned app removed from the sandbox's dock narrows the painted plate
 322 -> 275 px and back, fillets and band intact.
 
-**Stage 3 — the bar (landed).** Narrower than the dock's move, on purpose: only where the
+**Stage 3 — the bar (landed; superseded by the pin grammar, `frame-pin-grammar.md` the bar row:
+the band on the bar's edge is a hairline like the others and the plate is a join record `"bar"`,
+fused to it or lifted off by the compositor's gap - `frameBars` and `plateOnFrame`'s authority read
+are gone).** Narrower than the dock's move, on purpose: only where the
 bar IS the frame's edge — `barCovers`, the Hug style with a painted plate — because there the
 plate is a full-width strip, which is a band. `FrameGeometry.paintsBarPlate` says when;
 `Bar.qml` publishes the plate's thickness and how far its edge side sits from the screen edge

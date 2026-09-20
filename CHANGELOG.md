@@ -22,8 +22,11 @@ own repo; the installer pins which revision it builds.
   and keeps it, and unpinning (the button, or a drag back) lands it and restarts
   its clock. Dragging a fused card is elastic and never dismisses. The dock
   follows its own pin under the new `Auto` (pinned floats, unpinned sits on the
-  band); your existing Attached or Floating choice is kept. Settings > Appearance >
-  Frame gains a row each for popups and notifications.
+  band); your existing Attached or Floating choice is kept. The bar itself (Hug style)
+  sits fused on the frame's edge while the workspace is empty and lifts off it as an
+  island - by the compositor's gap, corners rounding - once a window is open; pin it
+  with `qs -c imi ipc call bar togglePin` to keep it lifted. Settings > Appearance >
+  Frame gains a row each for the bar, popups and notifications.
 
 ## [1.2.0] — 2026-09-20
 
