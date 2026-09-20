@@ -6,84 +6,83 @@ import QtQuick
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Hyprland
+import "../../../services/frame_geometry.js" as Geo
 
 /**
- * The frame's four bands (frame mode, stage 1), one per screen edge, drawn
- * in the bar's colour so bar, bands and the ScreenCorners fillets read as
- * one connected surface. The band on the bar's edge sits under the bar
- * plate; every other edge, the dock's included, is the band alone - a
- * pinned dock meets it on its own terms (Dock.qml: on it as a tab, or a
- * gap above it). Input passes through (an empty
- * mask); nothing is reserved - the band lives in the outer gap windows
- * already leave. Painted transparent, never unmapped, for a fullscreen
- * window.
+ * The frame: ONE surface per screen, drawing the four bands in the bar's
+ * colour so bar, bands and the ScreenCorners bezel read as one connected
+ * surface (docs/proposals/frame-one-surface.md, stage 1). The band on the
+ * bar's edge sits under the bar plate; every other edge, the dock's included,
+ * is the band alone - a pinned dock meets it on its own terms (Dock.qml: on it
+ * as a tab, or a gap above it).
+ *
+ * One surface rather than four, and the reason is what a surface IS to the
+ * compositor: the unit blur is computed against, and the outline a specular
+ * edge will one day be drawn along. Four band surfaces were four outlines
+ * meeting at four corners, each corner an overlap two translucent surfaces
+ * could paint twice - which is why `bandMargins` keeps them from crossing.
+ * On one surface the bands are items, the crossing arithmetic still holds
+ * (an overlapping pair of translucent Rectangles double-paints too), and
+ * there is one blur region for the whole border rather than four that have
+ * to agree.
+ *
+ * What a screen-sized, always-mapped surface has to get right, each of which
+ * this tree has paid for once (AGENT.md, layer-shell gotchas): its geometry
+ * is a constant of the screen - four edges anchored, no margins - so nothing
+ * ever reconfigures it; it takes no input (an empty mask) and no keyboard;
+ * and it stays on `quickshell:frame`, whose rules.lua entry carries `no_anim`
+ * and `blur = false` - a minted namespace would fall through the catch-all
+ * `ignore_alpha = 0.05`, under which a screen of transparent pixels asks the
+ * compositor to blur the entire output. Nothing is reserved: the bands live
+ * in the outer gap windows already leave. Painted transparent, never
+ * unmapped, for a fullscreen window - `visible` on a layer surface destroys
+ * it.
  */
 Scope {
     id: frame
 
-    component Band: PanelWindow {
+    // One band. A Rectangle on the surface: the two horizontal bands span the
+    // width, the two side bands run between them, so no two overlap - the
+    // colour is translucent, and a crossing paints twice on one surface just
+    // as it did across two. On the bar's edge, where the bar's plate covers
+    // its strip, the band IS that plate (stage 3): its thickness and its
+    // auto-hide slide come from what the bar publishes, and BarContent paints
+    // no plate of its own. The side bands therefore inset by what is DRAWN on
+    // the horizontal edges - the plate while it is there, the band otherwise,
+    // nothing while the plate has slid out - rather than by the authority's
+    // `bandMargins`, which knows the band's thickness and not the plate's.
+    component Band: Item {
         id: band
         required property string edge // "left" | "right" | "top" | "bottom"
-        property bool hidden: false
-        // Mapped for as long as frame mode is on: `visible` on a layer
-        // surface destroys and recreates it, so a fullscreen window or a
-        // thickness of 0 paints the band transparent instead. The surface
-        // reserves nothing and takes no input, so a transparent band costs
-        // nothing (namespace rule in hypr/hyprland/rules.lua: no_anim).
-        // Nothing to paint where the bar's own plate is the border.
+        required property bool hidden
+        // The bar's plate, when this is the bar's edge and the frame paints it.
+        property var barPlate: null
+        // What the horizontal bands are drawing, for the side bands to stop at.
+        property real topInset: 0
+        property real bottomInset: 0
+        readonly property bool vertical: band.edge === "left" || band.edge === "right"
+        readonly property real extent: band.barPlate ? band.barPlate.thickness : FrameGeometry.bandExtent(band.edge)
+        // How far the band's edge side sits from the screen edge: nothing for
+        // a band, the bar's slide for its plate - negative on the way out.
+        readonly property real inset: band.barPlate ? band.barPlate.inset : 0
+        // What of it is on screen, measured from the screen edge inward.
+        readonly property real visibleExtent: Math.max(0, Math.min(band.extent, band.extent + band.inset))
+        // Nothing to paint where the bar's own plate is the border and the
+        // frame does not paint it, and nothing for a fullscreen window:
+        // transparent, never removed.
         readonly property bool painted: !band.hidden && band.extent > 0
-        visible: FrameGeometry.enabled
-        exclusionMode: ExclusionMode.Ignore
-        WlrLayershell.namespace: "quickshell:frame"
-        // Top. The band is chrome, like the fillets on Overlay: it draws
-        // over a floating window dragged into the gap, and that is the
-        // frame. A round on Bottom ("under every window, over the
-        // wallpaper") was not that: the wallpaper (quickshell:background)
-        // is on Bottom too, and within a level the compositor stacks by
-        // creation order, so a band created before the wallpaper - every
-        // cold start with frame mode on - was under it and invisible; it
-        // only showed when the mode was switched on at runtime. The dock,
-        // the other Top surface on the band's edge, no longer overlaps it:
-        // the pill sits on the band or above it.
-        WlrLayershell.layer: WlrLayer.Top
-        // The colour goes on a child rect, not on the window, so the
-        // compositor's blur region has an item to follow. Unblurred, the band
-        // was the bar's colour over RAW wallpaper while the bar was the same
-        // colour over a blurred one - measured side by side, a green-grey bar
-        // above a blue band, which is the opposite of one connected surface.
-        color: "transparent"
-        mask: Region {}
+        // The whole band, once: the join's field stops at the band's inner
+        // edge (FrameJoinField's box), so nothing else paints these rows.
         Rectangle {
-            id: bandFill
             anchors.fill: parent
             color: band.painted ? FrameGeometry.color : "transparent"
         }
-        WindowBlurRegion {
-            targetWindow: band
-            regionItem: band.painted ? bandFill : null
-        }
-        anchors {
-            left: band.edge !== "right"
-            right: band.edge !== "left"
-            top: band.edge !== "bottom"
-            bottom: band.edge !== "top"
-        }
-        // Under the bar's plate on the bar's edge, at the screen edge
-        // elsewhere; the horizontal bands span the width and the side bands
-        // run between them, so no two bands overlap (the colour is
-        // translucent: a crossing was painted twice).
-        readonly property var bandMargins: FrameGeometry.bandMargins(band.edge)
-        margins {
-            top: band.bandMargins.top
-            bottom: band.bandMargins.bottom
-            left: band.bandMargins.left
-            right: band.bandMargins.right
-        }
-        // Its own edge's thickness: nothing on a covering bar's edge, where
-        // the bar's plate is the border, the configured thickness elsewhere.
-        readonly property real extent: FrameGeometry.bandExtent(band.edge)
-        implicitWidth: (band.edge === "left" || band.edge === "right") ? Math.max(1, band.extent) : 0
-        implicitHeight: (band.edge === "top" || band.edge === "bottom") ? Math.max(1, band.extent) : 0
+        x: band.edge === "right" ? parent.width - band.inset - band.extent
+         : band.edge === "left" ? band.inset : 0
+        y: band.edge === "bottom" ? parent.height - band.inset - band.extent
+         : band.edge === "top" ? band.inset : band.topInset
+        width: band.vertical ? band.extent : parent.width
+        height: band.vertical ? parent.height - band.topInset - band.bottomInset : band.extent
     }
 
     Variants {
@@ -96,25 +95,178 @@ Scope {
             property bool specialOpen: HyprlandData.specialWorkspaceByMonitorName[screenScope.monitor?.name ?? ""] ?? false
             readonly property bool hidden: fullscreen && !specialOpen
 
-            Band {
+            PanelWindow {
+                id: surface
                 screen: screenScope.modelData
-                edge: "left"
-                hidden: screenScope.hidden
-            }
-            Band {
-                screen: screenScope.modelData
-                edge: "right"
-                hidden: screenScope.hidden
-            }
-            Band {
-                screen: screenScope.modelData
-                edge: "top"
-                hidden: screenScope.hidden
-            }
-            Band {
-                screen: screenScope.modelData
-                edge: "bottom"
-                hidden: screenScope.hidden
+                // Mapped for as long as frame mode is on; a fullscreen window
+                // or a thickness of 0 paints the bands transparent instead.
+                visible: FrameGeometry.enabled
+                exclusionMode: ExclusionMode.Ignore
+                WlrLayershell.namespace: "quickshell:frame"
+                // Top. The frame is chrome, like the bezel corners on Overlay:
+                // it draws over a floating window dragged into the gap. A round
+                // on Bottom ("under every window, over the wallpaper") was
+                // invisible on every cold start: the wallpaper is on Bottom too
+                // and a level stacks by creation order.
+                WlrLayershell.layer: WlrLayer.Top
+                // A screen-sized surface that took the keyboard would swallow
+                // whatever the user typed while showing nothing.
+                WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
+                // A literal, and the colour on the bands: a window colour bound
+                // to a transparency-derived token goes opaque once and never
+                // gets its blur back (#143).
+                color: "transparent"
+                mask: Region {}
+                anchors {
+                    left: true
+                    right: true
+                    top: true
+                    bottom: true
+                }
+
+                Band { id: topBand;    edge: "top";    hidden: screenScope.hidden
+                       barPlate: surface.barPlate?.edge === "top" ? surface.barPlate : null }
+                Band { id: bottomBand; edge: "bottom"; hidden: screenScope.hidden
+                       barPlate: surface.barPlate?.edge === "bottom" ? surface.barPlate : null }
+                Band { id: leftBand;   edge: "left";   hidden: screenScope.hidden
+                       topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
+                Band { id: rightBand;  edge: "right";  hidden: screenScope.hidden
+                       topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
+
+                // The join (frame-one-surface.md, stage 2). Whatever is fused
+                // to the frame on this screen - the dock, today - publishes
+                // its plate in screen coordinates with the solver's numbers,
+                // and the field is drawn HERE, so the plate, the neck and the
+                // band are one distance field on one surface: one outline for
+                // the blur region to follow, and one for a specular rim later.
+                // The element's own plate stands down while this paints
+                // (FrameJoin.drawsPlate); its window keeps the icons, the
+                // input and the exclusive zone.
+                // The records, taken up a beat AFTER they are published.
+                // They are published from inside the other window's frame -
+                // the dock's layout settling in its polish, its spring's
+                // FrameAnimation tick - and under the threaded render loop a
+                // repaint this window asks for while another window is
+                // locked for its sync is only noted, and taken up the next
+                // time THIS window happens to sync. Measured on a 240 Hz
+                // session and then in the sandbox: the field held the old
+                // plate under icons that had already moved, and snapped to
+                // the new width some random moment later; a colour toggled
+                // by a Timer, which fires between frames, rendered every
+                // time. `Qt.callLater` runs once the publisher's frame is
+                // done, so the field's changes ask for a repaint from the
+                // event loop like the Timer did.
+                property var join: null
+                property var barPlate: null
+                function takeRecords() {
+                    const name = screenScope.modelData.name;
+                    surface.join = GlobalStates.frameJoins[name] ?? null;
+                    surface.barPlate = GlobalStates.frameBars[name] ?? null;
+                }
+                Connections {
+                    target: GlobalStates
+                    function onFrameJoinsChanged() { Qt.callLater(surface.takeRecords); }
+                    function onFrameBarsChanged() { Qt.callLater(surface.takeRecords); }
+                }
+                Component.onCompleted: surface.takeRecords()
+                function bandEdgeFor(edge) {
+                    const extent = edge === "left" ? leftBand.extent : edge === "right" ? rightBand.extent
+                                 : edge === "top" ? topBand.extent : bottomBand.extent;
+                    return Geo.joinBandEdge(edge, extent, surface.width, surface.height);
+                }
+
+                // The strip the field paints in: the band's edge, the whole
+                // width, and enough depth for the plate at full lift plus
+                // the meniscus - a box that never moves or resizes while the
+                // plate does (FrameJoinField.pinnedBox says why). It changes
+                // only with the surface or the band, and then the field is
+                // made again rather than resized: a Loader keyed on it.
+                readonly property real joinStripDepth: 160
+                function joinStripFor(edge) {
+                    const b = surface.bandEdgeFor(edge), d = surface.joinStripDepth;
+                    if (edge === "top") return Qt.rect(0, b, surface.width, d);
+                    if (edge === "left") return Qt.rect(b, 0, d, surface.height);
+                    if (edge === "right") return Qt.rect(b - d, 0, d, surface.height);
+                    return Qt.rect(0, b - d, surface.width, d);
+                }
+                readonly property rect joinStrip: surface.joinStripFor(surface.join?.edge ?? "bottom")
+                readonly property var joinField: joinLoader.item
+                Loader {
+                    id: joinLoader
+                    readonly property rect strip: surface.joinStrip
+                    onStripChanged: { active = false; active = true; }
+                    active: true
+                    sourceComponent: FrameJoinField {
+                        id: joinField
+                        readonly property var j: surface.join
+                        painting: joinField.j !== null && !screenScope.hidden
+                        edge: joinField.j?.edge ?? "bottom"
+                        plateX: joinField.j?.plate.x ?? 0
+                        plateY: joinField.j?.plate.y ?? 0
+                        plateWidth: joinField.j?.plate.width ?? 0
+                        plateHeight: joinField.j?.plate.height ?? 0
+                        radiusTopLeft: joinField.j?.radii.topLeft ?? 0
+                        radiusTopRight: joinField.j?.radii.topRight ?? 0
+                        radiusBottomRight: joinField.j?.radii.bottomRight ?? 0
+                        radiusBottomLeft: joinField.j?.radii.bottomLeft ?? 0
+                        bandEdge: surface.bandEdgeFor(joinField.edge)
+                        color: joinField.j?.color ?? "transparent"
+                        gap: joinField.j?.gap ?? 0
+                        neck: joinField.j?.neck ?? 0
+                        bulgeRaw: joinField.j?.bulge ?? 0
+                        meniscus: joinField.j?.meniscus ?? 45
+                        blendPerPixel: joinField.j?.blendPerPixel ?? 4
+                        climbFraction: joinField.j?.climbFraction ?? 0
+                        outlineLimit: joinOutlinePool.count
+                        pinnedBox: joinLoader.strip
+                    }
+                }
+                // The join's outline for the blur region: one Region per
+                // rectangle of what the field painted (FrameJoinField.outline),
+                // out of a pool declared once - a Region's list takes an
+                // array, and the field merges its rows down to the pool's
+                // size. A strip guessed from the study's ratios had frosted
+                // a 14x20 px block of bare wallpaper at each end of the dock,
+                // outside the concave fillet and inside the strip.
+                Instantiator {
+                    id: joinOutlinePool
+                    model: 64
+                    delegate: Region {
+                        required property int index
+                        readonly property var r: surface.joinField?.outline[index] ?? null
+                        x: r?.x ?? 0
+                        y: r?.y ?? 0
+                        width: r?.width ?? 0
+                        height: r?.height ?? 0
+                    }
+                }
+
+                // One region for the whole border, composed per band and
+                // gated on exactly what paints: a region over an unpainted
+                // band frosts bare wallpaper. Unblurred, the band was the
+                // bar's colour over RAW wallpaper while the bar was the same
+                // colour over a blurred one - measured, a green-grey bar above
+                // a blue band, the opposite of one connected surface.
+                WindowBlurRegion {
+                    targetWindow: surface
+                    region: Region {
+                        Region { item: leftBand.painted ? leftBand : null }
+                        Region { item: rightBand.painted ? rightBand : null }
+                        Region { item: topBand.painted ? topBand : null }
+                        Region { item: bottomBand.painted ? bottomBand : null }
+                        // ...and the join, as the rows the field paints: the
+                        // plate, the neck and the meniscus' flanks are one
+                        // outline, and this is that outline (empty while the
+                        // field is not painting here).
+                        Region {
+                            regions: {
+                                const pool = [];
+                                for (let i = 0; i < joinOutlinePool.count; i++) pool.push(joinOutlinePool.objectAt(i));
+                                return pool;
+                            }
+                        }
+                    }
+                }
             }
         }
     }

@@ -257,6 +257,17 @@ hl.layer_rule({ match = { namespace = "quickshell:verticalBar" }, blur = false})
 -- translucent on the surface to scope a blur to.
 hl.layer_rule({ match = { namespace = "quickshell:background" }, blur = false})
 hl.layer_rule({ match = { namespace = "quickshell:dock" }, blur = false})
+-- Frame mode's bands take the same treatment, and here it is not about a
+-- shadow: the band is the SAME translucent colour as the bar's plate and the
+-- dock's tab, and those two are blurred through a region while the band was
+-- blurred whole-surface off the catch-all. Two mechanisms at two thresholds on
+-- surfaces that are meant to read as one piece of chrome, which is what a
+-- frame-coloured band beside a frame-coloured dock made visible - measured over
+-- a white backdrop, the band and the dock's own meniscus at (142,143,145)
+-- against the plate's (82,81,84). Frame.qml publishes the region;
+-- tests/lint_blur_region_pairing.py fails the suite while only one half is
+-- present, which is how this was found.
+hl.layer_rule({ match = { namespace = "quickshell:frame" }, blur = false})
 -- And the transient surfaces, which were the last panels still frosting their
 -- own shadow (#89): every OSD indicator sits in an elevation margin, and the
 -- overview surface carries two shadowed cards (the search widget and the

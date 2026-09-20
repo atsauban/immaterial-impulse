@@ -39,7 +39,8 @@ class FrameModeContract(unittest.TestCase):
         self.assertRegex(block, r"property bool enable:\s*false", "a look, not a fix: off by default")
         self.assertRegex(block, r"property int thickness:\s*0")
         geo = _strip(GEOMETRY.read_text())
-        self.assertIn("Geo.bandThickness(Config.options.appearance.frame.thickness, Config.options.hyprland.general.gapsOut)", geo)
+        self.assertIn("Geo.bandThickness(Config.options.appearance.frame.thickness)", geo,
+                      "the band is the configured thickness, never thinner than draws (HAIRLINE) - the gap stopped being 0's meaning")
         self.assertIn("&& !Config.options.bar.vertical", geo, "the vertical bar is not framed in stage 1")
         # The bar's edge is what the compositor reserves - ONE token, read by
         # the bar's reserver and by the authority, never a second copy.
@@ -51,8 +52,9 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn("property real barExclusiveZone: root.sizes.barReservedHeight", appearance)
         self.assertIn("zone: (Config?.options.bar.autoHide.enable && (!barRoot.mustShow || !Config?.options.bar.autoHide.pushWindows))\n                        ? 0 : Appearance.sizes.barReservedHeight",
                       _strip((ROOT / "modules/imi/bar/Bar.qml").read_text()))
-        # The fillet radius is the window rounding, full stop.
-        self.assertIn("Geo.innerRadius(root.liveRounding >= 0 ? root.liveRounding : Config.options.hyprland.decoration.rounding)", geo)
+        # No inner fillet and no inner radius: the frame's corners are the
+        # SCREEN's corners, the bezel ScreenCorners draws in black.
+        self.assertNotIn("innerRadius", geo)
         # The dock is NOT an occupant of the frame. The frame's inner corner
         # on the dock's edge is at the band (a fillet at the dock's inset
         # arced into wallpaper; a band as tall as the dock's strip was a
@@ -64,7 +66,8 @@ class FrameModeContract(unittest.TestCase):
         self.assertNotIn("import qs.modules.imi.dock", GEOMETRY.read_text())
         self.assertNotIn("GlobalStates", GEOMETRY.read_text())
         self.assertNotRegex(geo, r"ForScreen|fullscreenOnMonitor|ByScreen", "one frame for every screen: no per-screen readers")
-        self.assertIn("Geo.edgeInsets(root.barEdge, root.barThickness, root.thickness)", geo)
+        self.assertIn("Geo.edgeInsets(root.barEdge, root.barThickness, root.thickness, root.gap, root.barCovers)", geo,
+                      "a covering bar's edge is its zone plus the gap; every other edge is the band")
         self.assertNotRegex(appearance, r"dockExclusiveZone|dock_geometry", "Appearance is the layer everything builds on; it names no feature")
         # How a pinned dock meets the band is the frame's option, read by the
         # dock: on it as a tab (the default) or a gap above it. Anything but
@@ -106,187 +109,133 @@ class FrameModeContract(unittest.TestCase):
         # ...and published only while the pill is at rest: a Region tracks
         # its item's OWN geometry, the dock hides by offsetting an ancestor,
         # and a hidden dock left a frosted silhouette where the pill rests.
-        self.assertIn("item: Config.options.dock.showBackground && dockMouseArea.atRest ? dockVisualBackground : null", dock)
+        self.assertIn("item: Config.options.dock.showBackground && dockMouseArea.atRest && !dockJoin.drawsPlate ? dockVisualBackground : null", dock,
+                      "no second region over a plate the frame's surface is painting")
         self.assertIn("readonly property bool atRest: anchors.horizontalCenterOffset === 0 && anchors.verticalCenterOffset === 0", dock)
-        self.assertIn("DockGeometry.cornerRadiiAt(root.edge, radius,\n                                dockRoot.liftFromTab || dockRoot.splitTarget === 0 ? dockRoot.apart : 1,", dock,
-                      "the outward corners round on the scalar, from the seam, not at a boolean - and stay round for a pill that was never fused")
+        self.assertIn("DockGeometry.cornerRadiiAt(root.edge, radius,\n                                dockRoot.apart, 0, 1)", dock,
+                      "round throughout while the join owns the motion: the meniscus wraps the corner")
         for corner in ("topLeft", "topRight", "bottomLeft", "bottomRight"):
             self.assertRegex(dock, rf"{corner}Radius:\s+frameRadii\.{corner}", corner)
             self.assertIn(f"{corner}Radius: dockVisualBackground.{corner}Radius", dock, f"the blur region follows the pill's {corner}")
         # GlobalStates.dockPinned existed for the authority; nothing reads it now.
         self.assertNotIn("dockPinned", dock)
         self.assertNotIn("dockPinned", _strip((ROOT / "GlobalStates.qml").read_text()))
-        self.assertIn("FrameGeometry.bandMargins(band.edge)", frame)
-        self.assertIn("Math.max(1, FrameGeometry.thickness)", frame)
-        self.assertNotRegex(frame, r"bandExtent|ForScreen", "the band is its thickness on every edge")
+        # The side bands inset by what the horizontal edges DRAW (stage 3:
+        # the bar's plate where the frame paints it, the band otherwise), so
+        # the authority's bandMargins - the band's thickness, not the plate's
+        # - is not what places them any more.
+        self.assertNotIn("bandMargins", frame)
+        self.assertIn("topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent", frame)
+        self.assertIn("FrameGeometry.bandExtent(band.edge)", frame,
+                      "a band's thickness on its own edge is the authority's: nothing on a covering bar's edge")
+        self.assertNotRegex(frame, r"ForScreen", "one frame for every screen")
         self.assertNotIn("fullscreen: screenScope.fullscreen", frame)
-        self.assertIn("FrameGeometry.cornerMargins(", corners)
-        self.assertNotRegex(corners, r"cornerMarginsForScreen|screen\?\.name", "the fillet asks for its corner, not a screen")
-        # The compositor's live rounding, the option as the fallback; the
-        # probe spawns only while frame mode is on.
-        self.assertIn('command: ["hyprctl", "getoption", "decoration:rounding", "-j"]', geo)
-        self.assertIn("running: root.enabled && root.probeArmed\n", geo)
-        self.assertNotIn("roundingProbe.running =", geo, "re-arm through the flag; a write over the binding destroys it")
-        self.assertIn('if (event.name !== "configreloaded" || !root.enabled) return;', geo)
+        self.assertNotRegex(corners, r"cornerMargins|screen\?\.name", "the corners are the screen's bezel; they ask the authority for nothing")
+        # No probe of the compositor's rounding: it sized a fillet that is
+        # gone, and it spawned hyprctl on every self-inflicted reload.
+        self.assertNotRegex(geo, r"hyprctl|probeArmed|configreloaded")
 
     def test_the_dock_switch_is_the_split(self):
-        """docs/proposals/motion-split.md §6: one scalar, the split tier taken
-        whole, the pill lifting inside a surface that never moves, the look
-        sequenced outside the motion, the corners and the neck keyed on the
-        seam, and a zone that reserves the union of where the pill is and
-        where it goes."""
+        """The attached <-> floating switch is a FRAME JOIN, not a curve: a
+        drop leaving a pond and landing back on it, integrated (fluid.js),
+        owned once by modules/common/widgets/FrameJoin.qml. The dock keeps
+        its geometry and reads the join's numbers; the field that draws the
+        plate, the neck and the band is FrameJoinField, painted on the frame's
+        surface (frame-one-surface.md stage 2). Pinned as SHAPE: who owns
+        what, and that nothing here sequences anything with a timer."""
         dock = _strip((ROOT / "modules/imi/dock/Dock.qml").read_text())
         reservation = _strip((ROOT / "modules/imi/dock/DockReservation.qml").read_text())
-        appearance = _strip((ROOT / "modules/common/Appearance.qml").read_text())
-        # The tier: a two-segment curve whose join - the seam - is the scalar's
-        # midpoint, an 800 ms base through the policy, and the two constants
-        # beside it. Measured, not chosen: the proposal's §4 and §5.
-        self.assertIn("readonly property list<real> split: [0.15, 0, 0.5, 0.5, 0.5, 0.5, 0.6, 0.5, 0.5, 1, 1, 1]", appearance)
-        self.assertIn("readonly property real splitDuration: 800", appearance)
-        self.assertIn("property QtObject split: QtObject {", appearance)
-        self.assertIn("motion.scale(animationCurves.splitDuration)", appearance)
-        self.assertIn("readonly property real splitSeam: 0.5", appearance)
-        self.assertIn("readonly property real splitNeckReach: 0.8", appearance)
-        self.assertIn("### Split (one body becomes two, or two become one)", (ROOT.parents[3] / "docs/M3_GUIDELINES.md").read_text())
-        # ONE scalar, 0 fused and 1 apart, driven by the CONFIGURED choice -
-        # never by a state the user did not toggle (a fullscreen window
-        # dropping `attached` used to replay a landing on every exit) - with
-        # exactly one Behavior: the tier whole, enabled only when there is a
-        # lift to draw, and a pause before a landing so the look lands before
-        # the outline moves (the reference sequences effects and space).
-        self.assertIn("property real splitProgress: dockRoot.splitTarget", dock)
-        self.assertIn("readonly property real splitTarget: FrameGeometry.enabled && root.pinned && !DockReservation.attached ? 1 : 0", dock,
-                      "the frame option and the pin: pinning a floating dock lifts it off the band")
-        self.assertNotRegex(dock, r"splitTarget:.*(reserves|fullscreen)", "the scalar does not follow the fullscreen term")
-        self.assertEqual(dock.count("Behavior on splitProgress"), 1)
-        behavior = dock[dock.index("Behavior on splitProgress"):]
-        behavior = behavior[:behavior.index("readonly property real splitTravel")]
-        self.assertIn("enabled: dockRoot.splitTravel > 0", behavior, "no lift, no spatial tier: the look alone changes")
-        self.assertIn("SequentialAnimation", behavior)
-        self.assertIn("PauseAnimation { duration: splitBehavior.targetValue === 0 && dockRoot.splitProgress >= 1 ? Appearance.animation.elementMoveFast.duration : 0 }", behavior,
-                      "a pause only when a look change is pending - a lift reversed mid-flight parked the pill in the air")
-        for half in ("Appearance.animation.split.duration",
-                     "easing.type: Appearance.animation.split.type",
-                     "easing.bezierCurve: Appearance.animation.split.bezierCurve"):
-            self.assertIn(half, behavior, "the tier is taken whole")
-        self.assertNotRegex(dock, r"duration:\s*\d", "no literal duration anywhere in the dock")
-        # The lift: the gap, only while the dock reserves its edge; the pill
-        # moves on its OWN margins (so the blur region, which tracks its
-        # item's own geometry, rides the lift) and the icons ride the pill.
+        join = _strip((ROOT / "modules/common/widgets/FrameJoin.qml").read_text())
+        field = _strip((ROOT / "modules/common/widgets/FrameJoinField.qml").read_text())
+        fluid = (ROOT / "modules/common/functions/fluid.js").read_text()
+        # The scalar split is gone: no progress, no seam, no latch of which
+        # look the lift began as. What the eye reads as the break is the
+        # neck's own state.
+        self.assertNotRegex(dock, r"splitProgress|liftFromTab|splitTarget|splitNeck|Appearance\.animation\.split\b")
+        # The target is the frame option and the PIN - never `attached` or
+        # `reserves`, which fold in the fullscreen term and replayed a landing
+        # on every fullscreen exit.
+        self.assertIn("readonly property bool joinAttached: !(FrameGeometry.enabled && root.pinned && !DockReservation.attached)", dock)
+        self.assertIn("FrameJoin {\n                            id: dockJoin", dock)
+        self.assertIn("attached: dockRoot.joinAttached", dock)
+        self.assertIn("travel: dockRoot.splitTravel", dock)
+        self.assertIn("active: FrameGeometry.enabled && Config.options.dock.showBackground", dock)
+        self.assertIn("color: FrameGeometry.color", dock, "the band's own colour: one surface, one opinion")
+        # The dock reads the join; it does not integrate anything itself.
         self.assertIn("readonly property real splitTravel: DockGeometry.splitTravel(FrameGeometry.enabled, dockRoot.reserves, Appearance.sizes.hyprlandGapsOut)", dock)
-        self.assertIn("readonly property real splitLift: dockRoot.splitTravel * dockRoot.splitProgress", dock)
+        self.assertIn("readonly property real splitLift: dockJoin.lift", dock)
+        self.assertIn("readonly property real splitPress: dockJoin.press", dock)
         self.assertIn("readonly property real splitRoom: DockGeometry.splitRoom(Appearance.sizes.hyprlandGapsOut, Appearance.sizes.elevationMargin)", dock)
-        self.assertIn("DockGeometry.liftedMargins(root.edge, dockRoot.dockMargins, dockRoot.splitRoom, dockRoot.splitLift)", dock)
+        self.assertIn("DockGeometry.liftedMargins(root.edge, dockRoot.dockMargins, dockRoot.splitRoom, dockRoot.splitLift, dockRoot.splitPress)", dock,
+                      "the pill moves on its OWN margins, and the stretch is the press")
         self.assertIn("DockGeometry.liftOffset(root.edge, dockRoot.splitRoom, dockRoot.splitLift)", dock)
-        self.assertIn("Appearance.sizes.elevationMargin, Appearance.sizes.hyprlandGapsOut) + dockRoot.splitRoom", dock,
-                      "the strip grows by the room the lift needs, nothing at the defaults")
-        # The reservation reserves the union of where the pill is and where it
-        # is going: it steps at the start of a lift and the end of a landing,
-        # a boolean that flips - never per frame, never against a floating
-        # pill. The authority's zone stays the attached one.
+        self.assertNotRegex(dock, r"duration:\s*\d", "no literal duration anywhere in the dock")
+        # The reservation reserves the union of where the pill is and where
+        # it is going, a boolean that flips, never per frame.
         self.assertIn("exclusiveZone: dockRoot.reserves ? DockReservation.zone + dockRoot.splitZoneExtra : 0", dock)
-        self.assertIn("readonly property real splitZoneExtra: DockGeometry.splitZoneExtra(dockRoot.splitTravel, dockRoot.splitTarget === 1, dockRoot.splitProgress)", dock)
+        self.assertIn("readonly property real splitZoneExtra: DockGeometry.splitZoneExtra(dockRoot.splitTravel, !dockRoot.joinAttached, dockRoot.splitLift)", dock)
         self.assertNotIn("splitZoneExtra", reservation)
-        self.assertNotIn("splitProgress", reservation)
-        # The look: the tab's until the pill has landed apart, then the pill's
-        # on the effects tier - after the motion on a lift, before it on a
-        # landing (the pause above). With no lift the look IS the switch and
-        # runs on the effects tier alone, corners included, on its own scalar.
-        self.assertIn("readonly property bool attachedLook: dockRoot.splitTravel > 0 ? (dockRoot.attached || (dockRoot.splitProgress < 1 && dockRoot.liftFromTab)) : dockRoot.attached", dock)
-        # A lift that began as the tab splits; a pill that was never fused
-        # (a floating dock being pinned) rises as a pill: no neck, corners
-        # round. Latched at the target's rising edge.
-        self.assertIn("property bool liftFromTab: true", dock)
-        self.assertIn("onSplitTargetChanged: if (dockRoot.splitTarget === 1) dockRoot.liftFromTab = dockRoot.attachedBefore", dock,
-                      "decided from last turn's attached, never from the look (its terms move on the same edge) nor from what changed (a change between edges escapes)")
-        self.assertIn("onAttachedChanged: Qt.callLater(() => { dockRoot.attachedBefore = dockRoot.attached; })", dock)
-        self.assertIn("property bool attachedBefore: false", dock, "a plain property, never a binding a handler destroys")
-        self.assertNotIn("liftFromTab = dockRoot.attachedLook", dock)
-        self.assertNotIn("pinnedAtLastEdge", dock)
-        self.assertIn("&& (dockRoot.liftFromTab || dockRoot.splitTarget === 0)", dock, "the neck draws for a split and for every landing")
+        self.assertNotIn("dockJoin", reservation)
+        # The look is the tab's while anything still bridges the two, in both
+        # directions; with no lift it IS the switch, on its own effects-tier
+        # scalar. The corners stay round wherever a neck can reach them.
+        self.assertIn("readonly property bool attachedLook: dockRoot.splitTravel > 0 ? dockJoin.fused : dockRoot.attached", dock)
         self.assertIn("property real lookApart: dockRoot.attached ? 0 : 1", dock)
         look = dock[dock.index("Behavior on lookApart {"):]
         look = look[:look.index("}")]
-        self.assertIn("enabled: dockRoot.splitTravel <= 0", look, "idle while the split scalar is the one read")
+        self.assertIn("enabled: dockRoot.splitTravel <= 0", look, "idle while the join is the one read")
         self.assertIn("animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)", look)
-        self.assertIn("readonly property real apart: dockRoot.splitTravel > 0 ? dockRoot.splitProgress : dockRoot.lookApart", dock)
+        self.assertIn("readonly property real apart: dockRoot.splitTravel > 0 ? 1 : dockRoot.lookApart", dock)
         self.assertIn("Behavior on color { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }", dock)
         self.assertIn("Behavior on border.color { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }", dock)
         self.assertNotIn("Behavior on border.width", dock)
-        # The corners and the neck are keyed on the SEAM - the outward pair
-        # rounds from it, the neck lives from it to the pinch - so the token
-        # is read, not decorative.
-        # With a neck to expose them, the outward corners round over the
-        # neck's span; without one - no lift, or no shader to draw it (the
-        # software scene graph) - over the whole scalar, or a square corner
-        # hovered over a lit gap for the lift's first half (measured).
-        self.assertIn("readonly property bool necked: dockRoot.splitTravel > 0 && splitNeck.fieldAvailable", dock)
-        # ...and with one, from where the pill's ends leave the band (before
-        # the seam, for a short lift) to the pinch.
-        self.assertIn("readonly property var cornerSpan: dockVisualBackground.necked\n                                ? DockGeometry.cornerSpan(dockRoot.splitTravel, Appearance.animation.splitSeam, Appearance.animation.splitNeckReach)\n                                : ({ seam: 0, reach: 1 })", dock)
-        self.assertIn("dockVisualBackground.cornerSpan.seam, dockVisualBackground.cornerSpan.reach)", dock,
-                      "the corners round over the neck's span - seam to pinch - or over the whole look scalar without a lift")
-        neck = dock[dock.index("id: splitNeck"):]
-        neck = neck[:neck.rfind("Rectangle {", 0, neck.index("id: dockVisualBackground"))]
-        self.assertIn("DockGeometry.neckWaist(splitNeck.pillAlong, dockRoot.splitProgress, Appearance.animation.splitSeam, Appearance.animation.splitNeckReach)", neck)
-        # ...and the neck is a distance field: ONE shader over one box from
-        # the module, the way the reference builds it (motion-split.md §1),
-        # boxed rather than anchored (the turn is a size), the blend keyed on
-        # the seam and nothing at rest.
-        self.assertIn("ShaderEffect {\n                            id: splitNeck", dock, "the neck is a shader")
-        self.assertIn('fragmentShader: Qt.resolvedUrl("shaders/split.frag.qsb")', neck)
-        self.assertIn("DockGeometry.neckBlend(dockRoot.splitTravel, dockRoot.splitProgress, Appearance.animation.splitSeam)", neck)
-        # The box holds still for a whole motion; only uniforms move per frame.
-        self.assertIn("readonly property var box: DockGeometry.splitBox(root.edge,", neck)
-        self.assertNotRegex(neck, r"box: [^\n]*(splitLift|splitProgress|dockVisualBackground)", "the box is built from the rest margins, never the moving pill")
-        self.assertIn("readonly property real reach: DockGeometry.fieldReach(dockRoot.splitLift)", neck)
-        self.assertIn("readonly property real pixelRatio: dockRoot.devicePixelRatio", neck, "the window's ratio follows fractional scaling")
-        self.assertIn("readonly property color fillColor: FrameGeometry.color", neck)
-        self.assertIn("readonly property real softness: DockGeometry.BLEND_SOFTNESS", neck)
-        # Where no shader can draw, the pill keeps its Rectangle: the software
-        # scene graph draws no ShaderEffect, and a failed load draws nothing.
-        self.assertIn("readonly property bool fieldAvailable: splitNeck.GraphicsInfo.api !== GraphicsInfo.Software", neck)
-        self.assertIn("&& splitNeck.status !== ShaderEffect.Error", neck)
-        self.assertIn("readonly property bool painting: splitNeck.fieldAvailable &&", neck)
-        # ...and the shader stays inside core GLSL ES 1.00 - the profile an
-        # OpenGL 2.1-class backend gets (issue #70, c76d6b7b): no derivatives.
-        frag = (ROOT / "modules/imi/dock/shaders/split.frag").read_text()
-        code = "\n".join(l.split("//")[0] for l in frag.splitlines())
-        for construct in ("fwidth", "dFdx", "dFdy", "#extension"):
-            self.assertNotIn(construct, code, construct)
-        for gone in ("Shape {", "ShapePath {", "PathSvg", "Rectangle {", "RoundCorner", "layer.enabled", "anchors."):
-            self.assertNotIn(gone, neck, gone)
-        self.assertNotIn("import QtQuick.Shapes", dock)
-        # While the field paints, the pill's Rectangle does not: the same
-        # silhouette in the same colour at both hand-overs, and a translucent
-        # fill drawn twice is darker. An opacity flip, never a colour with a
-        # Behavior on it (that would fade the pill out).
-        self.assertIn("opacity: splitNeck.painting ? 0 : 1", dock)
-        self.assertNotIn("Behavior on opacity", dock)
-        # A direction from part way takes a proportional time with the
-        # effects tier as its floor (the reference's rule), and the tier's
-        # curve whole.
-        self.assertIn("duration: DockGeometry.splitDuration(Appearance.animation.split.duration, Appearance.animation.elementMoveFast.duration, splitBehavior.from, splitBehavior.targetValue)", behavior)
-        self.assertIn("onTargetValueChanged: splitBehavior.from = dockRoot.splitProgress", behavior,
-                      "the start is latched: a duration bound to the moving scalar shortens its own run every frame")
-        self.assertNotRegex(behavior, r"duration: DockGeometry\.splitDuration\([^)]*dockRoot\.splitProgress")
+        # The plate stands down while the field paints it, wherever that is.
+        self.assertIn("opacity: dockJoin.drawsPlate ? 0 : 1", dock)
+        # The join: physics on a gated FrameAnimation that stops itself the
+        # frame it settles, stepped through the motion policy's clock (the
+        # speed slider and reduce motion reach a solver that way, having no
+        # duration to scale), with the field split out as its painter.
+        self.assertIn("readonly property real target: (root.active && !root.attached) ? Math.max(0, root.travel) : 0", join)
+        self.assertIn("FrameAnimation {", join)
+        self.assertIn("running: false", join)
+        self.assertIn("const h = Appearance.animation.scaleStep(frameTime);", join)
+        self.assertIn("root.state = Fluid.step(root.state, root.target, h);", join)
+        self.assertIn("if (root.state.settled)\n                stepper.running = false;", join)
+        self.assertIn("FrameJoinField {\n        id: neck", join)
+        self.assertIn("readonly property bool drawsPlate: root.painting", join)
+        self.assertNotRegex(join, r"Timer\s*\{|SequentialAnimation|PauseAnimation", "nothing sequences the break; it is the neck's own state")
+        # The chosen model is Cleavage: a CLAMP, not a rubber band - it holds
+        # with the same force however far the two are pulled and weakens only
+        # as the bridge thins, so the furrow is the event and the travel comes
+        # after. Change these together or not at all.
+        self.assertIn("var TENSION = 900;", fluid)
+        self.assertIn("? TENSION * s.neck : 0;", fluid)
+        self.assertNotIn("TENSION * s.neck * s.gap", fluid)
+        self.assertNotIn("function cornerRound", fluid, "the corners are not the solver's business any more")
+        # The field: one shader, the window's own pixel ratio, and a fallback
+        # where no shader can draw (the software scene graph, a failed load).
+        self.assertIn('fragmentShader: Qt.resolvedUrl("../shaders/frame_join.frag.qsb")', field)
+        self.assertIn("readonly property bool fieldAvailable: field.GraphicsInfo.api !== GraphicsInfo.Software", field)
+        self.assertIn("&& field.status !== ShaderEffect.Error", field)
+        self.assertIn("readonly property real pixelRatio: Window.window?.devicePixelRatio ?? 1", field)
+        self.assertNotRegex(field, r"import qs\.services|FrameGeometry|GlobalStates|Config\.", "the painter reads no service: it is handed everything")
 
     def test_the_split_shader_binary_is_built_from_its_source(self):
-        # The shell loads split.frag.qsb, never split.frag: an edit to the
+        # The shell loads frame_join.frag.qsb, never frame_join.frag: an edit to the
         # source that is not rebaked changes nothing on screen and reads as
-        # a fix. split.frag.qsb.bake records what the binary was baked from -
+        # a fix. frame_join.frag.qsb.bake records what the binary was baked from -
         # the source's sha256 and the qsb that baked it - so a source edit
         # without a rebake fails everywhere, CI included, whatever qsb is
         # there. Where the SAME qsb is installed the binary is also rebaked
         # and compared byte for byte (qsb's output is deterministic; another
         # version's is not, so that half skips).
         import hashlib
-        shaders = ROOT / "modules/imi/dock/shaders"
-        record = (shaders / "split.frag.qsb.bake").read_text().split()
+        shaders = ROOT / "modules/common/shaders"
+        record = (shaders / "frame_join.frag.qsb.bake").read_text().split()
         digest, version = record[0], " ".join(record[2:4])
-        self.assertEqual(hashlib.sha256((shaders / "split.frag").read_bytes()).hexdigest(), digest,
-                         "split.frag changed since split.frag.qsb was baked: rebake it and rewrite "
-                         "split.frag.qsb.bake (the command is in split.frag's header)")
+        self.assertEqual(hashlib.sha256((shaders / "frame_join.frag").read_bytes()).hexdigest(), digest,
+                         "frame_join.frag changed since frame_join.frag.qsb was baked: rebake it and rewrite "
+                         "frame_join.frag.qsb.bake (the command is in frame_join.frag's header)")
         qsb = shutil.which("qsb") or next((p for p in ("/usr/lib/qt6/bin/qsb", "/usr/lib64/qt6/bin/qsb")
                                            if Path(p).exists()), None)
         if qsb is None:
@@ -295,22 +244,21 @@ class FrameModeContract(unittest.TestCase):
         if installed != version:
             self.skipTest(f"baked with {version}, {installed or 'an unknown qsb'} installed; the source hash was checked")
         with tempfile.TemporaryDirectory() as tmp:
-            out = Path(tmp) / "split.frag.qsb"
+            out = Path(tmp) / "frame_join.frag.qsb"
             subprocess.run([qsb, "--glsl", "100 es,120,150", "--hlsl", "50", "--msl", "12",
-                            "-o", str(out), str(shaders / "split.frag")], check=True, capture_output=True)
-            self.assertEqual(out.read_bytes(), (shaders / "split.frag.qsb").read_bytes(),
-                             "split.frag.qsb does not match a bake of split.frag with the recorded qsb")
+                            "-o", str(out), str(shaders / "frame_join.frag")], check=True, capture_output=True)
+            self.assertEqual(out.read_bytes(), (shaders / "frame_join.frag.qsb").read_bytes(),
+                             "frame_join.frag.qsb does not match a bake of frame_join.frag with the recorded qsb")
 
     def test_one_geometry_authority(self):
         corners = _strip(CORNERS.read_text())
-        self.assertIn("FrameGeometry.cornerMargins(", corners)
-        self.assertIn('color: FrameGeometry.enabled ? FrameGeometry.color : "#000000"', corners)
-        # The window stays at the screen corner (the corner-open hit rect
-        # lives there); only the fillet SHAPE moves inward.
-        for side in ("left", "top"):
-            self.assertIn(f"{side}VisualMargin: cornerPanelWindow.frameMargins.{side}", corners, side)
-        self.assertNotIn("left: cornerPanelWindow.frameMargins.left", corners)
-        self.assertIn("implicitSize: FrameGeometry.enabled ? Math.round(FrameGeometry.innerRadius) : Appearance.rounding.screenRounding", corners)
+        # The frame's corners are the SCREEN's corners: a monitor's bezel,
+        # black in both modes, at the screen rounding. No frame-coloured
+        # fillet, no inner radius, no margin the shape moves inward by.
+        self.assertIn('color: "#000000"', corners)
+        self.assertIn("implicitSize: Appearance.rounding.screenRounding", corners)
+        self.assertNotRegex(corners, r"cornerMargins|frameMargins|innerRadius|FrameGeometry\.color",
+                            "the bezel is not the frame's colour and takes no inset from it")
         self.assertNotRegex(corners, r"gapsOut|barHeight|decoration\.rounding", "ScreenCorners computes no inset or radius of its own")
         bar = _strip(BAR.read_text())
         self.assertEqual(bar.count("FrameGeometry.enabled ? 0 :"), 4, "the centre-only pill squares all four corners in frame mode")
@@ -320,16 +268,99 @@ class FrameModeContract(unittest.TestCase):
         self.assertNotIn("visible: FrameGeometry.enabled && !fullscreen", frame)
         self.assertIn("exclusionMode: ExclusionMode.Ignore", frame, "the band lives in the gap; it reserves nothing")
         self.assertIn("mask: Region {}", frame, "the band takes no input")
-        self.assertEqual(frame.count("            Band {\n                screen: screenScope.modelData"), 4, "four bands, one per edge, each naming its screen")
-        # Every band is inset at BOTH ends (the library's bandMargins): the
-        # horizontal bands span the width, the side bands run between them,
-        # and no two overlap (the colour is translucent).
-        self.assertIn("top: band.bandMargins.top", frame)
-        self.assertIn("bottom: band.bandMargins.bottom", frame)
-        self.assertNotIn("bandOffsetFor", frame, "a band takes all four margins from the authority, not its own edge's offset alone")
+        # ONE surface per screen (docs/proposals/frame-one-surface.md, stage
+        # 1): the four bands are items on it, so the border has one outline and
+        # one blur region. A screen-sized always-mapped surface names its
+        # screen (#297), anchors all four edges with no margins (a margin is a
+        # position, and a position that changes reconfigures the surface),
+        # and takes no keyboard.
+        self.assertEqual(frame.count("PanelWindow {"), 1, "one surface per screen, not four")
+        self.assertIn("screen: screenScope.modelData", frame)
+        self.assertIn("WlrLayershell.keyboardFocus: WlrKeyboardFocus.None", frame)
+        self.assertRegex(frame, r"anchors \{\s*left: true\s*right: true\s*top: true\s*bottom: true\s*\}")
+        self.assertNotIn("margins {", frame, "the surface's geometry is a constant of the screen")
+        for edge in ("left", "right", "top", "bottom"):
+            self.assertRegex(frame, rf'Band \{{ id: {edge}Band;\s+edge: "{edge}";\s+hidden: screenScope.hidden', edge)
+            self.assertIn(f"Region {{ item: {edge}Band.painted ? {edge}Band : null }}", frame,
+                          f"the {edge} band's frost is gated on exactly what paints it")
+        # The side bands run between the horizontal ones, so no two overlap:
+        # the colour is translucent.
+        self.assertIn("readonly property real visibleExtent: Math.max(0, Math.min(band.extent, band.extent + band.inset))", frame)
+        self.assertNotIn("bandOffsetFor", frame)
         self.assertIn("HyprlandData.specialWorkspaceByMonitorName[", frame)
         rules = (ROOT.parents[1] / "hypr/hyprland/rules.lua").read_text()
         self.assertIn('namespace = "quickshell:frame" }, no_anim = true', rules)
+        # Both halves of scoped blur, or neither: the region above and the
+        # layer rule. With only the region the band was blurred whole-surface
+        # off the catch-all while the dock beside it was blurred through a
+        # region - two mechanisms on one colour, which is the seam that made
+        # an attached dock read as a separate object (lint_blur_region_pairing).
+        self.assertIn('namespace = "quickshell:frame" }, blur = false', rules)
+        # Stage 2: the frame paints the dock's plate. One painter in both
+        # states (a hand-over across two render loops blanked a frame), the
+        # dock's own region down while it does, and the dock painting itself
+        # under a fullscreen window, where a Top surface is buried.
+        dock = _strip((ROOT / "modules/imi/dock/Dock.qml").read_text())
+        field = _strip((ROOT / "modules/common/widgets/FrameJoinField.qml").read_text())
+        self.assertIn("FrameJoinField {", frame)
+        self.assertIn("surface.join = GlobalStates.frameJoins[name] ?? null;", frame)
+        # The blur region IS the field's outline: the rows the shader paints,
+        # evaluated by the same field in JS (join_field.js), one Region per
+        # rectangle from a pool the field merges down to. A strip guessed for
+        # the flare frosted a 14x20 px block of bare wallpaper at each end of
+        # the dock (measured over stripes); a plate region with rounded
+        # cutouts cut the corner the meniscus fills.
+        self.assertIn('import "../functions/join_field.js" as JoinField', field)
+        self.assertIn("readonly property var outline:", field)
+        # ...and only for a caller that follows it: the outline is GUI-thread
+        # JS every frame the join moves (2.1 ms a call in QV4 before it was
+        # tuned; eight benched fields computing one nobody read halved the
+        # shell's frame rate), so a field with no pool size computes none.
+        self.assertIn("property int outlineLimit: 0", field)
+        self.assertIn("if (!field.visible || field.outlineLimit <= 0) return [];", field)
+        self.assertIn("outlineLimit: joinOutlinePool.count", frame)
+        self.assertIn("readonly property var r: surface.joinField?.outline[index] ?? null", frame)
+        # The frame's field is the band strip, pinned: on this surface a
+        # ShaderEffect whose own x/width change after creation paints the new
+        # uniforms at the old place (measured; a Rectangle beside it moves),
+        # so the plate travels inside a box that never moves, and the box is
+        # re-made, not resized, when the strip changes.
+        self.assertIn("pinnedBox: joinLoader.strip", frame)
+        # ...and the frame keeps its own frame clock while a record moves: a
+        # window updated from another window's animation had its render
+        # coalesced away until that animation stopped (the plate froze, then
+        # snapped, on the user's session; a Timer-driven colour rendered).
+        self.assertIn("function onFrameJoinsChanged() { Qt.callLater(surface.takeRecords); }", frame)
+        self.assertIn("function onFrameBarsChanged() { Qt.callLater(surface.takeRecords); }", frame)
+        self.assertNotIn("GlobalStates.frameJoins[screenScope", frame)
+        self.assertIn("onStripChanged: { active = false; active = true; }", frame)
+        self.assertIn("property rect pinnedBox: Qt.rect(0, 0, 0, 0)", field)
+        self.assertNotIn("joinFlareRe", frame)
+        self.assertNotIn("joinPlateRegion", frame)
+        # The field's box stops AT the band's inner edge, so the band's rows
+        # are painted once, by the band: two rows into the band, the field
+        # painted the first at a quarter and the band, holed under the box,
+        # left a blurred hairline past each end of the fillet.
+        self.assertIn("const bottom = Math.max(py + ph, field.bandEdge);", field)
+        self.assertNotIn("rectSubtract", frame)
+        self.assertNotIn("joinHoleFor", frame)
+        self.assertIn("paintsLocally: dockRoot.fullscreenOnThisMonitor", dock)
+        self.assertIn("paintsAtRest: true", dock)
+        self.assertIn("if (!dockJoin.active || !dockJoin.painting || dockRoot.fullscreenOnThisMonitor || !dockRoot.screen) return null;", dock)
+        self.assertIn("GlobalStates.frameJoins = next;", dock)
+        self.assertIn("Component.onDestruction: publishFrameJoin(null)", dock)
+        # Stage 3: where the bar's plate covers its strip, the frame's band on
+        # that edge IS the plate - the bar publishes thickness and slide,
+        # BarContent paints no plate, and the authority says when.
+        geometry = _strip(GEOMETRY.read_text())
+        self.assertIn("readonly property bool paintsBarPlate: root.enabled && root.barCovers", geometry)
+        self.assertIn("readonly property bool plateOnFrame: FrameGeometry.paintsBarPlate && !centerOnly", bar)
+        self.assertEqual(bar.count("!root.plateOnFrame"), 2, "the plate's colour AND its region flag stand down together")
+        barWindow = _strip((ROOT / "modules/imi/bar/Bar.qml").read_text())
+        self.assertIn("if (!barContent.plateOnFrame || !barRoot.screen) return null;", barWindow)
+        self.assertIn("inset: Appearance.sizes.barSurfaceMargin + contentInset", barWindow)
+        self.assertIn("GlobalStates.frameBars = next;", barWindow)
+        self.assertIn('barPlate: surface.barPlate?.edge === "top" ? surface.barPlate : null', frame)
 
     def test_the_family_gates_the_surface_on_the_option(self):
         fam = FAMILY.read_text()

@@ -106,4 +106,16 @@ TestCase {
         compare(rects[2].y, rects[0].y + rects[0].h);
         compare(rects[2].y + rects[2].h, rects[1].y);
     }
+
+    function test_the_join_is_drawn_against_the_bands_inner_edge() {
+        // A 2 px band on a 5120x1440 screen: the dock's plate bottom lands on
+        // 1438, which is where the half-plane has to be.
+        compare(Geo.joinBandEdge("bottom", 2, 5120, 1440), 1438);
+        compare(Geo.joinBandEdge("top", 2, 5120, 1440), 2);
+        compare(Geo.joinBandEdge("left", 2, 5120, 1440), 2);
+        compare(Geo.joinBandEdge("right", 2, 5120, 1440), 5118);
+        // The meniscus' own outline is the field's business (join_field.js,
+        // tst_join_field.qml): the frame no longer guesses a strip for it.
+        verify(Geo.joinFlareRect === undefined);
+    }
 }

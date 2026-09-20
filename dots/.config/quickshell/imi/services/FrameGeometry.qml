@@ -37,6 +37,18 @@ Singleton {
     readonly property bool barCovers: (Config.options.bar.cornerStyle ?? 0) === 0
         && (Config.options.bar.showBackground ?? true)
     readonly property real gap: Appearance.sizes.hyprlandGapsOut
+    // Whether the FRAME's surface paints the bar's plate (frame-one-surface.md,
+    // stage 3): only where the bar is the frame's edge - a covering plate -
+    // because there the plate is a full-width strip, which is a band. The bar
+    // publishes its plate's thickness and its auto-hide slide (`frameBars`,
+    // on the shell's ephemeral state; the authority itself reads none of it -
+    // an occupant read through it was inert for a whole review round), and
+    // Frame.qml draws that band from it, while
+    // BarContent paints no plate of its own, so the strip and the side bands
+    // meeting at the top corners are one shape on one surface rather than two
+    // surfaces crossing. Every other style keeps its own plates: they are
+    // inset islands inside the frame, not the frame.
+    readonly property bool paintsBarPlate: root.enabled && root.barCovers
     readonly property real thickness: Geo.bandThickness(Config.options.appearance.frame.thickness)
     // How a pinned dock meets the band on its edge: on it (a tab, the
     // default) or floating a gap above it. Anything but "floating" is

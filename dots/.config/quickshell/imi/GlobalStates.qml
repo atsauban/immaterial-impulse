@@ -81,6 +81,19 @@ Singleton {
     // draws its cutout into this box and measures its clicks against the same
     // rectangle, so the pixels it judges are the pixels the depth layer masks.
     property var clockDepthViewports: ({})
+    // Every frame join the frame's surface is asked to paint, keyed by screen
+    // name (frame-one-surface.md, stage 2): the element that owns the motion
+    // (the dock) publishes its plate in SCREEN coordinates with the solver's
+    // numbers, and Frame.qml draws the field from it so the plate and the band
+    // are one outline on one surface. The `clockDepthViewports` shape: a
+    // reassigned map, the entry removed on destruction, absent while nothing
+    // is fused.
+    property var frameJoins: ({})
+    // The bar's plate, where the frame's surface paints it (stage 3): per
+    // screen, the plate's thickness and how far its edge side sits from the
+    // screen edge (negative while auto-hide slides it out). Same shape and
+    // lifetime rules as frameJoins.
+    property var frameBars: ({})
     // The active Wallpaper Engine scene's content aspect (w/h), published by
     // Background from the live surface's real content size - which the crop
     // picker needs because the scene's authored aspect is not the preview

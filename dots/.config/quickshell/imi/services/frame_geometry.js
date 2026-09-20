@@ -89,4 +89,15 @@ function bandMargins(edge, barEdge, band, gapsOut, barCovers) {
     return m;
 }
 
+// --- the join, drawn on the frame's surface (frame-one-surface.md, stage 2) --
 
+// The band's inner edge as a coordinate along the edge's axis, in the frame
+// surface's own frame (a y for top and bottom, an x for left and right): what
+// the join's field is told the half-plane is at.
+function joinBandEdge(edge, extent, width, height) {
+    var e = Number(extent) || 0;
+    if (edge === "top") return e;
+    if (edge === "left") return e;
+    if (edge === "bottom") return (Number(height) || 0) - e;
+    return (Number(width) || 0) - e;
+}
