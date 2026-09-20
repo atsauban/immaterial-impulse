@@ -374,7 +374,7 @@ class FrameModeContract(unittest.TestCase):
         # (bar_popup_unroll.js `fused`). "auto" follows how it was opened.
         overlay = _strip((ROOT / "modules/imi/bar/BarPopupOverlay.qml").read_text())
         self.assertIn('GlobalStates.publishFrameJoin(name, "barPopup", record);', overlay)
-        self.assertIn("readonly property bool joinsFrame: FrameGeometry.paintsBarPlate && !overlayWindow.barVertical", overlay)
+        self.assertIn("readonly property bool joinsFrame: FrameGeometry.popupsJoinBar && !overlayWindow.barVertical", overlay)
         self.assertIn('|| (overlayWindow.popupsLook === "auto" && !(overlayWindow.current?.pinnedOpen ?? false))', overlay)
         self.assertIn("readonly property bool joinAttached: !overlayWindow.joinsFrame || overlayWindow.wantsFused || overlayWindow.exiting", overlay)
         self.assertIn("card.parkedSize, overlayWindow.exiting, card.openProgress, overlayWindow.cardFused)", overlay)
@@ -487,6 +487,17 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn("|| ((GlobalStates.activeBarPopup?.popupVisible ?? false) && Config?.options.bar.autoHide.dismissPopups)", barWindow)
         overlay = _strip((ROOT / "modules/imi/bar/BarPopupOverlay.qml").read_text())
         self.assertIn("bandInset: overlayWindow.barInner", overlay)
+        # Islands treat popups like the plate: the island is the drop, the
+        # card's edge the pond; the frame paints both, the bar's island stands
+        # down by section, and the two records name each other's edges.
+        self.assertIn("readonly property bool popupsJoinBar: root.enabled && (root.barCovers || root.barIslands)", geometry)
+        self.assertIn('GlobalStates.publishFrameJoin(name, "barIsland", record);', overlay)
+        self.assertIn("neck: overlayWindow.islandDrops ? 0 : cardJoin.state.neck", overlay)
+        self.assertIn("&& overlayWindow.island.width < card.width", overlay, "the narrower body is the drop")
+        self.assertIn('if (key === "barIsland" && pop) return edge === "bottom" ? pop.plate.y : pop.plate.y + pop.plate.height;', frame)
+        self.assertIn('readonly property bool pinned: painter.key !== "barPopup" && painter.key !== "barIsland"', frame)
+        self.assertEqual(bar.count("readonly property Item frameIsland:"), 3, "every section names its island")
+        self.assertIn("opacity: onFrame ? 0 : 1", bar)
         self.assertNotIn("barThickness + overlayWindow.barLift", overlay)
         self.assertIn('GlobalStates.frameJoins[root.screen?.name ?? ""]?.bar?.zoneExtra ?? 0', _strip((ROOT / "modules/imi/notificationPopup/NotificationPopup.qml").read_text()))
         self.assertIn("readonly property var occupiedByMonitorName:", _strip((ROOT / "services/HyprlandData.qml").read_text()))

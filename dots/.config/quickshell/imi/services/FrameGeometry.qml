@@ -37,6 +37,14 @@ Singleton {
     readonly property bool barCovers: (Config.options.bar.cornerStyle ?? 0) === 0
         && (Config.options.bar.showBackground ?? true)
     readonly property real gap: Appearance.sizes.hyprlandGapsOut
+    // The Islands style with painted islands: each section its own plate.
+    readonly property bool barIslands: (Config.options.bar.cornerStyle ?? 0) === 4
+        && (Config.options.bar.showBackground ?? true)
+    // Whether a bar widget's popup joins the bar (frame-pin-grammar.md): where
+    // the frame paints the bar's plate the popup fuses to it; where the bar is
+    // islands the popup fuses to its section's island - the island the drop,
+    // the popup's edge the pond, since the island is the narrower of the two.
+    readonly property bool popupsJoinBar: root.enabled && (root.barCovers || root.barIslands)
     // Whether the FRAME's surface paints the bar's plate (frame-one-surface.md
     // stage 3, frame-pin-grammar.md the bar row): only where the bar is the
     // frame's edge - a covering plate - because there the plate is a

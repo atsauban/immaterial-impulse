@@ -249,6 +249,12 @@ Item {
             + root.barPadding - FrameGeometry.bandExtent(Config.options.bar.bottom ? "bottom" : "top"))
         component Island: Rectangle {
             required property bool populated
+            required property string sectionName
+            // While a widget's popup is fused to this island the frame paints
+            // it (BarPopupOverlay publishes "barIsland" with the section): the
+            // island stands down like the plate does, and its shadow with it.
+            readonly property bool onFrame: (GlobalStates.frameJoins[root.screen?.name ?? ""]?.barIsland?.section ?? "") === sectionName
+            opacity: onFrame ? 0 : 1
             readonly property bool hugsTop: contentContainer.islandsHug && !Config.options.bar.bottom
             readonly property bool hugsBottom: contentContainer.islandsHug && Config.options.bar.bottom
             visible: root.isFloatIslands && Config.options.bar.showBackground && !root.centerOnly && populated
@@ -274,7 +280,7 @@ Item {
         }
         component IslandShadow: Loader {
             required property Item island
-            active: Config.options.bar.shadow && island.visible && !contentContainer.islandsHug
+            active: Config.options.bar.shadow && island.visible && !contentContainer.islandsHug && !island.onFrame
             anchors.fill: island
             sourceComponent: StyledRectangularShadow {
                 anchors.fill: undefined
@@ -286,6 +292,7 @@ Item {
         IslandShadow { island: rightIsland }
         Island {
             id: leftIsland
+            sectionName: "left"
             populated: root.effectiveLeftLayout.length > 0
             anchors.left: leftSection.left
             anchors.right: leftSection.right
@@ -294,6 +301,7 @@ Item {
         }
         Island {
             id: centerIsland
+            sectionName: "center"
             populated: root.effectiveMiddleLayout.length > 0
             anchors.left: absoluteCenter.left
             anchors.right: absoluteCenter.right
@@ -302,6 +310,7 @@ Item {
         }
         Island {
             id: rightIsland
+            sectionName: "right"
             populated: root.effectiveRightLayout.length > 0
             anchors.left: rightSection.left
             anchors.right: rightSection.right
@@ -312,6 +321,7 @@ Item {
         // Left
         Item {
             id: leftSection
+            readonly property Item frameIsland: leftIsland
             // The plate behind this section, for a widget's popup-open
             // indicator when its own group paints no pill: the material pill,
             // the island, or the bar background - whichever this style paints.
@@ -435,6 +445,7 @@ Item {
         // Center
         Item {
             id: absoluteCenter
+            readonly property Item frameIsland: centerIsland
             readonly property Item popupAnchorSurface: root.isMaterial ? centerMaterialPill
                 : root.isFloatIslands ? centerIsland
                 : centerPill.visible ? centerPill
@@ -553,6 +564,7 @@ Item {
         // Right
         Item {
             id: rightSection
+            readonly property Item frameIsland: rightIsland
             readonly property Item popupAnchorSurface: root.isMaterial ? rightMaterialPill
                 : root.isFloatIslands ? rightIsland
                 : barBackground.color.a > 0 ? barBackground : null
