@@ -157,6 +157,19 @@ translucent against the band, it is the band.
   driven through a sandbox-only probe (the nested compositor delivers no hover): a hover popup
   fuses to the lifted plate's inner edge (`BarPopupOverlay.barLift`), a pinned one lifts its
   elevation margin off it; all five bar styles captured, the other four unchanged (islands).
+- **Auto-hide** (review, live footage): the user's bar hides. Three things followed. The
+  band on the bar's edge had become a permanent hairline, so a hidden bar left a straight
+  gap-thick line where before only the bezel arcs remained - the band now slides out with
+  the plate (`Frame.qml` Band `inset` from the bar's record), as it did when it WAS the
+  plate. A fused plate whose inner edge sits AT the band's surface is two surfaces at one
+  distance from every row below it, and the meniscus blended them into a strip the width
+  of the screen (12 rows, measured) - the bar's neck lets go over the last meniscus of the
+  slide (`slideHold` on the record). And the popup's field joined the hairline, not the
+  plate: with the band 40 px thick they coincided, with a hairline the popup's plate climbed
+  up through the bar to the screen edge (a black arch over the clock; a card hanging from
+  nothing once the bar had hidden) - a `barPopup` record now joins the bar plate's inner
+  edge (`joinBandEdgeFor`), the overlay reads the same edge off the bar's record
+  (`barInner`), and the bar holds while its popup is up (`mustShow`).
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.

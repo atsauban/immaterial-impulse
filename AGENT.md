@@ -494,8 +494,13 @@ over IPC), "attached"/"floating" force one look. Released, the bar reserves its 
 (`releaseZoneExtra`, the dock's `splitZoneExtra` rule: flips at the start of a lift and the end of a
 landing, one re-tile per state change) - with the zone held the island sat ON the first window's edge
 (measured at 8x, "feat(frame): a released bar reserves its lift"); the notification popup's `roomOn`
-reads the extra off the bar's record. A bar popup fuses to the plate's inner edge wherever the lift put
-it (`BarPopupOverlay.barLift`). Other bar styles keep their own plates: islands inside the frame.
+reads the extra off the bar's record. A bar popup joins the bar PLATE's inner edge, not the hairline
+(`Frame.qml joinBandEdgeFor`, `BarPopupOverlay.barInner`, both off the bar's record) - joined to the
+hairline its plate climbed up through the bar (seen live). Under auto-hide the band on the bar's edge
+slides out with the plate, the bar's neck lets go over the last meniscus of the slide (a plate AT the
+band's surface blended into a screen-wide strip), and the bar holds while its popup is up
+("fix(frame): auto-hide under the pin grammar - the band goes with the plate, the popup joins the plate").
+Other bar styles keep their own plates: islands inside the frame.
 ("feat(frame): one surface per screen draws the four bands"),
 ("fix(frame): the band's blur is scoped like the bar's, so the two stop being two"),
 ("feat(frame): the frame's surface paints the dock's plate and neck"),
