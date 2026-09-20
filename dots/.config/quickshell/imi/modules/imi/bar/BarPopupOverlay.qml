@@ -571,14 +571,22 @@ Scope {
             // is, read off the bar's record - the same number the frame paints
             // the join against (Frame.qml joinBandEdgeFor). Measured from the
             // bar's screen edge; the bar's thickness where there is no record.
-            // One numeric binding, no record property in between: this
-            // window publishes into the same map, and a var that took a new
-            // object on every publish was a binding loop.
-            readonly property real barInner: {
+            // Taken up from the event loop, not bound: this window publishes
+            // its own record into the same map, and a binding on the map was
+            // a loop (barInner -> the card's y -> the record -> the map ->
+            // barInner) whether it held the record or only a number derived
+            // from it. Frame.qml takes the map up the same way.
+            property real barInner: overlayWindow.barThickness
+            function takeBarInner() {
                 const b = GlobalStates.frameJoins[overlayWindow.modelData?.name ?? ""]?.bar ?? null;
-                if (!b) return overlayWindow.barThickness;
-                return overlayWindow.barEdge === "bottom" ? overlayWindow.height - b.plate.y : b.plate.y + b.plate.height;
+                overlayWindow.barInner = !b ? overlayWindow.barThickness
+                    : overlayWindow.barEdge === "bottom" ? overlayWindow.height - b.plate.y : b.plate.y + b.plate.height;
             }
+            Connections {
+                target: GlobalStates
+                function onFrameJoinsChanged() { Qt.callLater(overlayWindow.takeBarInner); }
+            }
+            onBarThicknessChanged: overlayWindow.takeBarInner()
             readonly property string popupsLook: String(Config.options.appearance.frame.popups ?? "auto")
             readonly property bool wantsFused: overlayWindow.popupsLook === "fused"
                 || (overlayWindow.popupsLook === "auto" && !(overlayWindow.current?.pinnedOpen ?? false))
@@ -624,7 +632,10 @@ Scope {
                 GlobalStates.publishFrameJoin(name, "barPopup", record);
             }
             onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
-            Component.onCompleted: publishFrameJoin(frameJoinRecord)
+            Component.onCompleted: {
+                overlayWindow.takeBarInner();
+                publishFrameJoin(frameJoinRecord);
+            }
             Component.onDestruction: publishFrameJoin(null)
 
             SequentialAnimation {
