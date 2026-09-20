@@ -2107,6 +2107,11 @@ Singleton {
                     // own card a gap off the band) when it was pinned by a
                     // click - "fused" and "released" force one look.
                     property string popups: "auto"
+                    // How a notification meets the band on its edge while it
+                    // shows: "auto" arrives fused and is released by its Pin
+                    // button; "fused" stays fused even pinned (the pin only
+                    // keeps it); "released" is the free card as before.
+                    property string notifications: "auto"
                 }
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen

@@ -27,10 +27,23 @@ Scope {
         property bool isCenter: position.endsWith("center")
         property bool isLeft: position.endsWith("left")
         property bool isRight: position.endsWith("right")
+        // The frame's band the cards fuse to (frame-pin-grammar.md, slice
+        // 3): the side positions have one, the centre ones do not - a stack
+        // under the top band has one card on the band and the rest on
+        // nothing. Fused, the list sits ON the band's inner edge.
+        readonly property string frameEdge: root.isRight ? "right" : root.isLeft ? "left" : ""
+        readonly property bool frameFused: FrameGeometry.enabled && root.frameEdge !== ""
+            && String(Config.options.appearance.frame.notifications ?? "auto") !== "released"
 
         WlrLayershell.namespace: "quickshell:notificationPopup"
         WlrLayershell.layer: WlrLayer.Overlay
         exclusiveZone: 0
+        // Fused to the frame the window IS the screen: a card publishes its
+        // plate in screen coordinates for the frame to paint, and a surface
+        // placed inside the other surfaces' exclusive zones (Auto) starts
+        // below the bar - measured, a plate painted 40 px above its card.
+        // The frame's own insets take the bar's place in the margins below.
+        exclusionMode: root.frameFused ? ExclusionMode.Ignore : ExclusionMode.Auto
 
         anchors {
             top: true
@@ -51,7 +64,10 @@ Scope {
         // turning the layerrule blur off for this namespace.
         WindowBlurRegion {
             targetWindow: root
-            regionItems: listview.cardItems
+            // ...less the cards the frame paints: their blur is the frame's
+            // region, and one here would frost the wallpaper under a card
+            // that has stood down.
+            regionItems: listview.cardItems.filter(card => !(card.parent?.plateOnFrame ?? false))
             regionItemsRadius: Appearance.rounding.normal
         }
 
@@ -60,10 +76,12 @@ Scope {
 
         NotificationListView {
             id: listview
-            anchors.leftMargin: root.isLeft ? Appearance.spacing.space50 : 0
-            anchors.rightMargin: root.isRight ? Appearance.spacing.space50 : 0
-            anchors.topMargin: Appearance.spacing.space50
-            anchors.bottomMargin: Appearance.spacing.space50
+            anchors.leftMargin: root.isLeft ? (root.frameFused ? FrameGeometry.bandExtent("left") : Appearance.spacing.space50) : 0
+            anchors.rightMargin: root.isRight ? (root.frameFused ? FrameGeometry.bandExtent("right") : Appearance.spacing.space50) : 0
+            frameEdge: root.frameFused ? root.frameEdge : ""
+            screenName: root.screen?.name ?? ""
+            anchors.topMargin: (root.frameFused ? FrameGeometry.insets.top : 0) + Appearance.spacing.space50
+            anchors.bottomMargin: (root.frameFused ? FrameGeometry.insets.bottom : 0) + Appearance.spacing.space50
             width: Appearance.sizes.notificationPopupWidth
             popup: true
             verticalLayoutDirection: root.isBottom ? ListView.BottomToTop : ListView.TopToBottom

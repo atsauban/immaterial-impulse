@@ -166,6 +166,25 @@ ContentPage {
                         text: Translation.tr("Auto: a popup opened by hovering grows out of the bar's band and closes back into it; one pinned by a click lifts off as its own card. Fused or Released force one look for both.")
                     }
                 }
+                ConfigSelectionArray {
+                    property bool rowVisible: Config.options.appearance.frame.enable
+                    icon: "notifications"
+                    text: Translation.tr("Notifications")
+                    currentValue: Config.options.appearance.frame.notifications ?? "auto"
+                    onSelected: newValue => { Config.options.appearance.frame.notifications = newValue; }
+                    options: [
+                        { "displayName": Translation.tr("Auto"), "value": "auto" },
+                        { "displayName": Translation.tr("Fused"), "value": "fused" },
+                        { "displayName": Translation.tr("Released"), "value": "released" }
+                    ]
+                    detailContent: StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("Auto: a notification arrives fused to the band at its edge and sinks back into it; its Pin button lifts it off as its own card and keeps it. Fused keeps pinned ones on the band too; Released is the free card. Only for the left and right positions.")
+                    }
+                }
             }
         }
 

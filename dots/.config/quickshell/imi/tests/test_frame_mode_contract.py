@@ -371,6 +371,24 @@ class FrameModeContract(unittest.TestCase):
         unroll = (ROOT / "modules/imi/bar/bar_popup_unroll.js").read_text()
         self.assertIn("function restHeight(openHeight, heroHeight, parkedSize, exiting, fused)", unroll)
         self.assertIn('property string popups: "auto"', _strip((ROOT / "modules/common/Config.qml").read_text()))
+        # Slice 3: a popup notification card joins the frame's side band the
+        # same way, through the controller (a shared widget reads no service),
+        # published under "notification:<app>"; its Pin button releases and
+        # keeps it, unpinning lands it back and dismisses; the list slides a
+        # leaving card INTO its band.
+        group = _strip((ROOT / "modules/common/widgets/NotificationGroup.qml").read_text())
+        controller = _strip((ROOT / "modules/common/widgets/NotificationController.qml").read_text())
+        popup = _strip((ROOT / "modules/imi/notificationPopup/NotificationPopup.qml").read_text())
+        self.assertIn("function publishFrameJoin(screen: string, key: string, record: var): void", controller)
+        self.assertIn("readonly property color frameColor: FrameGeometry.color", controller)
+        self.assertIn("root.controller.publishFrameJoin(root.screenName, root.joinKey, record);", group)
+        self.assertNotIn("FrameGeometry", group)
+        self.assertNotIn("GlobalStates", group)
+        self.assertIn('readonly property bool joinAttached: root.frameLook === "fused" || !root.pinned || root.closing', group)
+        self.assertIn("onClicked: root.pinned ? root.unpin() : root.pin()", group)
+        self.assertIn('removeToLeft: root.frameEdge === "left"', _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))
+        self.assertIn('regionItems: listview.cardItems.filter(card => !(card.parent?.plateOnFrame ?? false))', popup)
+        self.assertIn('readonly property string frameEdge: root.isRight ? "right" : root.isLeft ? "left" : ""', popup)
         self.assertIn("function publishFrameJoin(screen: string, key: string, record: var): void", _strip((ROOT / "GlobalStates.qml").read_text()))
         self.assertIn("Component.onDestruction: publishFrameJoin(null)", dock)
         # Stage 3: where the bar's plate covers its strip, the frame's band on

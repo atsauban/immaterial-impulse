@@ -11,6 +11,13 @@ StyledListView { // Scrollable window
     property bool popup: false
     // See NotificationGroup. Handed to every card this view builds.
     property NotificationController controller: NotificationController {}
+    // The frame's band this list's cards fuse to ("left" / "right", empty for
+    // none) and the screen they are on, both from the host: a card publishes
+    // its plate for the frame under the screen's name, and slides INTO the
+    // band on its way out (frame-pin-grammar.md, slice 3).
+    property string frameEdge: ""
+    property string screenName: ""
+    removeToLeft: root.frameEdge === "left"
 
     spacing: Appearance.spacing.space50
 

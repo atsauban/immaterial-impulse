@@ -21,6 +21,106 @@ MouseArea { // Notification group area
     property bool multipleNotifications: notificationCount > 1
     property bool expanded: false
     property bool popup: false
+
+    // The frame (frame-pin-grammar.md, slice 3). A popup card on the frame's
+    // left or right band is FUSED to it - on the band's inner edge, its
+    // band-side corners filled by the meniscus, the frame painting the plate
+    // - until it is PINNED: the Pin button lifts it off (the elevation gap,
+    // the neck cutting) and keeps it. Unpinning is the close: it lands and
+    // swallows back into the band, then times out and slides into it. All
+    // frame facts come through the controller; the edge and the screen come
+    // from the list.
+    readonly property string frameEdge: root.popup ? (root.ListView.view?.frameEdge ?? "") : ""
+    readonly property string screenName: root.ListView.view?.screenName ?? ""
+    readonly property string frameLook: root.controller.frameNotificationsLook
+    readonly property bool joinsFrame: root.popup && root.controller.frameEnabled
+        && root.frameEdge !== "" && root.frameLook !== "released"
+    property bool pinned: false
+    property bool closing: false
+    readonly property bool joinAttached: root.frameLook === "fused" || !root.pinned || root.closing
+    readonly property bool plateOnFrame: root.joinsFrame && cardJoin.drawsPlate
+    // The card's offset off the band along the edge's normal: the lift.
+    readonly property real liftOffset: root.frameEdge === "right" ? -cardJoin.lift
+        : root.frameEdge === "left" ? cardJoin.lift : 0
+    readonly property string joinKey: "notification:" + (root.notificationGroup?.appName ?? "")
+    function pin(): void {
+        root.pinned = true;
+        leaveHideTimer.stop();
+        root.notifications.forEach(notif => root.controller.cancelTimeout(notif));
+    }
+    // Unpinning is dismissal: back onto the band first where there is one,
+    // then the timeout, which slides it into the band.
+    function unpin(): void {
+        root.pinned = false;
+        if (root.joinsFrame && !cardJoin.fused) {
+            root.closing = true;
+            return;
+        }
+        root.notifications.forEach(notif => root.controller.timeout(notif));
+    }
+    FrameJoin {
+        id: cardJoin
+        anchors.fill: parent
+        plate: background
+        edge: root.frameEdge !== "" ? root.frameEdge : "right"
+        attached: root.joinAttached
+        travel: Appearance.sizes.elevationMargin
+        bandInset: 0
+        color: root.controller.frameColor
+        active: root.joinsFrame
+        paintsLocally: false
+        paintsAtRest: true
+        onMovingChanged: {
+            if (cardJoin.moving || !root.closing) return;
+            root.closing = false;
+            root.notifications.forEach(notif => root.controller.timeout(notif));
+        }
+    }
+    // The plate's colour: the band's while fused, the card's while released,
+    // the change on the card's colour tier.
+    property color platePaint: cardJoin.fused ? root.controller.frameColor : Appearance.colors.colBackgroundSurfaceContainer
+    Behavior on platePaint { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }
+    readonly property var frameJoinRecord: {
+        if (!cardJoin.active || !cardJoin.painting || !root.screenName) return null;
+        // Read so a move re-evaluates this: the card's place in the list,
+        // the list's scroll, the card's own offset. mapToItem(null) is the
+        // window, which is the screen for a surface anchored on every edge.
+        root.x; root.y; root.width; root.height; background.x; background.y; background.width; background.height;
+        root.ListView.view?.contentY; root.ListView.view?.x; root.ListView.view?.y; root.opacity;
+        const at = background.mapToItem(null, 0, 0);
+        return {
+            edge: root.frameEdge,
+            plate: { x: at.x, y: at.y, width: background.width, height: background.height },
+            radii: { topLeft: background.radius, topRight: background.radius,
+                     bottomRight: background.radius, bottomLeft: background.radius },
+            gap: cardJoin.state.gap, neck: cardJoin.state.neck, bulge: cardJoin.state.bulge,
+            meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
+            climbFraction: cardJoin.climbFraction, color: root.platePaint
+        };
+    }
+    // Withdrawn under the screen and key it was PUBLISHED under: by the time
+    // a delegate is destroyed its list is gone (no screen name) and its group
+    // may be (no app name), and a withdrawal that recomputed either missed -
+    // the frame kept painting a plate with no card in it.
+    property string publishedScreen: ""
+    property string publishedKey: ""
+    function publishFrameJoin(record): void {
+        if (record) {
+            if (!root.screenName || !root.popup) return;
+            if (root.publishedScreen && (root.publishedScreen !== root.screenName || root.publishedKey !== root.joinKey))
+                root.controller.publishFrameJoin(root.publishedScreen, root.publishedKey, null);
+            root.controller.publishFrameJoin(root.screenName, root.joinKey, record);
+            root.publishedScreen = root.screenName;
+            root.publishedKey = root.joinKey;
+        } else if (root.publishedScreen) {
+            root.controller.publishFrameJoin(root.publishedScreen, root.publishedKey, null);
+            root.publishedScreen = "";
+            root.publishedKey = "";
+        }
+    }
+    onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
+    Component.onCompleted: publishFrameJoin(frameJoinRecord)
+    Component.onDestruction: publishFrameJoin(null)
     property real padding: Appearance.spacing.space150
     implicitHeight: background.implicitHeight
 
@@ -66,7 +166,7 @@ MouseArea { // Notification group area
             root.notifications.forEach(notif => {
                 root.controller.cancelTimeout(notif);
             });
-        } else {
+        } else if (!root.pinned) {
             leaveHideTimer.restart();
         }
     }
@@ -141,18 +241,23 @@ MouseArea { // Notification group area
 
     StyledRectangularShadow {
         target: background
-        visible: popup
+        visible: popup && !root.plateOnFrame
     }
     Rectangle { // Background of the notification
         id: background
         anchors.left: parent.left
         width: parent.width
-        color: popup ? Appearance.colors.colBackgroundSurfaceContainer : Appearance.colors.colLayer2
+        // Stood down while the frame paints the plate: the same silhouette
+        // in the same colour, and a translucent fill drawn twice is darker.
+        color: root.plateOnFrame ? "transparent"
+            : popup ? Appearance.colors.colBackgroundSurfaceContainer : Appearance.colors.colLayer2
         radius: Appearance.rounding.normal
-        anchors.leftMargin: root.xOffset
+        anchors.leftMargin: root.xOffset + root.liftOffset
 
         Behavior on anchors.leftMargin {
-            enabled: !dragManager.dragging
+            // Off while the join moves the card: a Behavior whose target
+            // moves every frame restarts every frame and never ticks.
+            enabled: !dragManager.dragging && !cardJoin.moving
             NumberAnimation {
                 duration: Appearance.animation.elementMove.duration
                 easing.type: Appearance.animation.elementMove.type
@@ -209,7 +314,7 @@ MouseArea { // Notification group area
                     RowLayout {
                         id: topTextRow
                         anchors.left: parent.left
-                        anchors.right: expandButton.left
+                        anchors.right: pinButton.left
                         anchors.verticalCenter: parent.verticalCenter
                         spacing: Appearance.spacing.space100
                         StyledText {
@@ -234,6 +339,34 @@ MouseArea { // Notification group area
                             text: NotificationUtils.getFriendlyNotifTimeString(notificationGroup?.time)
                             font.pixelSize: topRow.fontSize
                             color: Appearance.colors.colSubtext
+                        }
+                    }
+                    // Pinned means released and kept (frame-pin-grammar.md):
+                    // the card lifts off the band and stops timing out.
+                    // Unpinning is the dismissal. Only for a popup card; the
+                    // sidebar's list has nothing to pin.
+                    RippleButton {
+                        id: pinButton
+                        visible: root.popup
+                        anchors.right: expandButton.left
+                        anchors.rightMargin: pinButton.visible ? Appearance.spacing.space50 : 0
+                        anchors.verticalCenter: parent.verticalCenter
+                        implicitHeight: expandButton.implicitHeight
+                        implicitWidth: pinButton.visible ? expandButton.implicitHeight : 0
+                        buttonRadius: Appearance.rounding.full
+                        colBackground: root.pinned ? Appearance.colors.colPrimaryContainer
+                            : ColorUtils.mix(Appearance.colors.colLayer2, Appearance.colors.colLayer2Hover, 0.5)
+                        colBackgroundHover: root.pinned ? Appearance.colors.colPrimaryContainerHover : Appearance.colors.colLayer2Hover
+                        colRipple: root.pinned ? Appearance.colors.colPrimaryContainerActive : Appearance.colors.colLayer2Active
+                        onClicked: root.pinned ? root.unpin() : root.pin()
+                        contentItem: MaterialSymbol {
+                            anchors.centerIn: parent
+                            text: "keep"
+                            iconSize: Appearance.font.pixelSize.normal
+                            color: root.pinned ? Appearance.colors.colOnPrimaryContainer : Appearance.colors.colOnLayer2
+                        }
+                        StyledToolTip {
+                            text: root.pinned ? Translation.tr("Unpin and dismiss") : Translation.tr("Pin: keep it here")
                         }
                     }
                     NotificationGroupExpandButton {

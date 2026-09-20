@@ -1,5 +1,6 @@
 import qs
 import qs.services
+import qs.modules.common
 import QtQuick
 
 /**
@@ -28,6 +29,21 @@ QtObject {
     // Whether this backend can reply inline, and whether this notification
     // in particular offers it. The shell's server has no reply channel.
     readonly property bool supportsReply: false
+
+    // The frame, for the popup cards (frame-pin-grammar.md, slice 3). A card
+    // is a shared widget and reads no service; this seam is where it reaches
+    // the frame: whether there is one, its colour, its band's depth on an
+    // edge, how the user wants notifications to meet it, and the one call
+    // that publishes a card's plate for the frame to paint.
+    readonly property bool frameEnabled: FrameGeometry.enabled
+    readonly property color frameColor: FrameGeometry.color
+    readonly property string frameNotificationsLook: String(Config.options.appearance.frame.notifications ?? "auto")
+    function frameBandExtent(edge: string): real {
+        return FrameGeometry.bandExtent(edge);
+    }
+    function publishFrameJoin(screen: string, key: string, record: var): void {
+        GlobalStates.publishFrameJoin(screen, key, record);
+    }
     function canReply(notif): bool {
         return false;
     }

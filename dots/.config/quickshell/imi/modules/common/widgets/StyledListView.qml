@@ -10,6 +10,10 @@ ListView {
     id: root
     spacing: Appearance.spacing.space100
     property real removeOvershoot: 20 // Account for gaps and bouncy animations
+    // Which way a removed delegate slides out: right, or left for a list
+    // whose exit is at its left edge (a card sinking into the frame's left
+    // band).
+    property bool removeToLeft: false
     property int dragIndex: -1
     property real dragDistance: 0
     property bool popin: true
@@ -147,7 +151,7 @@ ListView {
         animations: animateAppearance ? [
             Appearance?.animation.elementMove.numberAnimation.createObject(this, {
                 property: "x",
-                to: root.width + root.removeOvershoot,
+                to: root.removeToLeft ? -(root.width + root.removeOvershoot) : root.width + root.removeOvershoot,
             }),
             Appearance?.animation.elementMove.numberAnimation.createObject(this, {
                 property: "opacity",
