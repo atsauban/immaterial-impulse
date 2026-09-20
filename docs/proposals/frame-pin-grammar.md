@@ -268,6 +268,19 @@ translucent against the band, it is the band.
   card is the shell's again and its width and place animate (`card.followsContent`). Measuring
   this in the sandbox: `grim` is a screencast, so every frame grabbed flipped the Privacy card's
   "Screen" section on and off - the card's own layout is stable; the tool was the flapper.
+- **Frame by frame** ("a strange shakiness"): traced with a `FrameAnimation` logging the card's
+  x/y/w/h, progress, lift and neck through the dismiss, no grim. Three things were not smooth.
+  A content-driven retarget deferred to the event loop put the card's edge one frame behind
+  its collapsing content (a shimmer) - the follow is same-tick again, the deferral having been
+  aimed at grim's flapping. The Privacy card's "Granted permissions" reveal flipped `visible`
+  at the end of its collapse and the column's spacing above it went in one step - 10 px in one
+  frame among 2 px frames; the reveal is never hidden now and its top margin cancels the spacing
+  as it closes, so the column's height is continuous. And the width Behavior, gated off only
+  while the content drove the card, restarted from every frame's write through the landing and
+  never left 384 until the submerge; the card follows its content through the landing and the
+  Behaviors take over only for the submerge (`card.followsContent`). After: every channel
+  decelerates together through the landing (dx 4→0, dw -8→0, dh -10→-2), then the tier's
+  collapse. What remains is the tier's own start - the submerge accelerates from rest.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
