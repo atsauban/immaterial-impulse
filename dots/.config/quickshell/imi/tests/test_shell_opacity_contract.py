@@ -53,7 +53,9 @@ class PopupCardTests(unittest.TestCase):
         # by thinning it with the same amount, which stays 0 with transparency
         # off. The blur threshold already sits below the bar's fainter body.
         overlay = strip_comments((ROOT / "modules/imi/bar/BarPopupOverlay.qml").read_text(encoding="utf-8"))
-        self.assertIn("color: ColorUtils.transparentize(Appearance.colors.colLayer1Base, Appearance.backgroundTransparency)", overlay)
+        # In frame mode the frame paints the plate itself, so the card's own fill
+        # stands down to transparent there; the thinned colour is the other branch.
+        self.assertRegex(overlay, r'color: card\.plateOnFrame \? "transparent"\s*\n\s*: ColorUtils\.transparentize\(Appearance\.colors\.colLayer1Base, Appearance\.backgroundTransparency\)')
 
 
 class WidgetsFollowTests(unittest.TestCase):
