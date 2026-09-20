@@ -217,12 +217,39 @@ Scope {
                     bottom: Appearance.sizes.barBottomMargin
                 }
 
+                // What the frame's surface draws in place of this bar's plate
+                // (frame-one-surface.md, stage 3): the plate's thickness, and
+                // how far its edge side sits from the screen edge - the
+                // surface's own margin plus the content's animated one, so
+                // the auto-hide slide is followed frame for frame. Absent
+                // while the plate is this bar's own to paint.
+                readonly property var framePlateRecord: {
+                    if (!barContent.plateOnFrame || !barRoot.screen) return null;
+                    const bottom = Config.options.bar.bottom;
+                    const contentInset = bottom ? barContent.anchors.bottomMargin : barContent.anchors.topMargin;
+                    return {
+                        edge: bottom ? "bottom" : "top",
+                        thickness: barContent.backgroundItem.height,
+                        inset: Appearance.sizes.barSurfaceMargin + contentInset
+                    };
+                }
+                function publishFramePlate(record) {
+                    const name = barRoot.screen?.name ?? "";
+                    if (!name) return;
+                    const next = Object.assign({}, GlobalStates.frameBars);
+                    if (record) next[name] = record; else delete next[name];
+                    GlobalStates.frameBars = next;
+                }
+                onFramePlateRecordChanged: publishFramePlate(framePlateRecord)
+
                 // Include in focus grab
                 Component.onCompleted: {
                     GlobalFocusGrab.addPersistent(barRoot);
+                    publishFramePlate(framePlateRecord);
                 }
                 Component.onDestruction: {
                     GlobalFocusGrab.removePersistent(barRoot);
+                    publishFramePlate(null);
                 }
 
                 // Drag files over the bar to pop the drop shelf out below it -

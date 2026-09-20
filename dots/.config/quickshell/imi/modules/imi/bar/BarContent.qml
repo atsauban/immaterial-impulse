@@ -37,6 +37,14 @@ Item {
     readonly property Item backgroundItem: barBackground
     readonly property bool backgroundPainted: !centerOnly && Config.options.bar.showBackground
         && Config.options.bar.cornerStyle !== 2 && !root.isMaterial && !root.isFloatIslands
+        && !root.plateOnFrame
+    // The plate is the FRAME's to paint (frame-one-surface.md, stage 3): in
+    // frame mode with a covering plate, Frame.qml draws this strip as its band
+    // on the bar's edge from what Bar.qml publishes, so the strip and the side
+    // bands are one shape on one surface. Painted here as well it would be
+    // the same translucent colour twice.
+    readonly property bool plateOnFrame: FrameGeometry.paintsBarPlate && !centerOnly
+        && Config.options.bar.showBackground
     readonly property Item centerPillItem: centerPill
     readonly property bool centerPillPainted: centerPill.visible
 
@@ -164,7 +172,7 @@ Item {
         id: barBackground
         anchors.fill: parent
         anchors.margins: root.floatPlate ? Appearance.sizes.hyprlandGapsOut : 0
-        color: (!centerOnly && Config.options.bar.showBackground && Config.options.bar.cornerStyle !== 2 && !root.isMaterial && !root.isFloatIslands)
+        color: (!centerOnly && Config.options.bar.showBackground && Config.options.bar.cornerStyle !== 2 && !root.isMaterial && !root.isFloatIslands && !root.plateOnFrame)
             ? Appearance.colors.colBarBackground : "transparent"
         radius: Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
         border.width: (!centerOnly && Config.options.bar.cornerStyle === 1) ? 1 : 0
