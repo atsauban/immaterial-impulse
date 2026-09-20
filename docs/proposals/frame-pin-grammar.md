@@ -244,7 +244,12 @@ translucent against the band, it is the band.
   its plate's inner edge between the corner radii (`BarPopupOverlay.joinSpan`, taken up with
   `barInner` from the event loop, never bound - the overlay publishes into the map it reads); a
   card wider than that stretch (an island narrower than its card) is centred on it and carries no
-  neck. The card is placed again when the plate moves or its state turns.
+  neck, and the span is inset by half a meniscus more so the fillet's own spread stays on the
+  flat (the card's edge at the radius still put the fillet on the corner's curve). The span holds
+  in BOTH states: clamped only while fused, the pin's click sent the card back to the screen's
+  clamp as it lifted - a 36 px slide along the bar in the footage, the still-forming neck hanging
+  past the corner for those frames - and the landing slid it back. The card is placed again when
+  the plate moves or its state turns.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
