@@ -17,8 +17,10 @@ own repo; the installer pins which revision it builds.
   released as its own card (pinned, persistent). A bar widget's popup opened by
   hovering grows out of the bar's band and sinks back into it; pinning it by a
   click lifts it off. A notification at a left or right position arrives fused to
-  the band on that edge and sinks into it when it times out; its new Pin button
-  lifts it off and keeps it, and unpinning lands it back and dismisses it. The dock
+  the band on that edge, emerging from it, and sinks back into it when it times out
+  or is closed; its new Pin button - or a drag away from the band - lifts it off
+  and keeps it, and unpinning (the button, or a drag back) lands it and restarts
+  its clock. Dragging a fused card is elastic and never dismisses. The dock
   follows its own pin under the new `Auto` (pinned floats, unpinned sits on the
   band); your existing Attached or Floating choice is kept. Settings > Appearance >
   Frame gains a row each for popups and notifications.

@@ -30,7 +30,7 @@ Settings > Appearance > Frame gets one row per surface to override the default.
 |---|---|---|---|---|
 | bar widget popup | hover (`StyledPopup.hoverHeld`) | fused to the bar's band, grows out of it | clicking the widget while open = `pinnedOpen`, the card releases (lift + cut, the elevation gap appears) | unpin: lands and swallows back, then submerges; hover leaving a fused card: submerges |
 | bar widget popup | click (`StyledPopup.pinnedOpen`, tray menus, Docker/Discord plugins) | released, as today | already pinned | close: swallow into the band, submerge |
-| notification | arrives (`Notifications.popupList`) | fused to the band on its edge (the right band for `top_right`/`bottom_right`, the top band for `top_center`) | a **Pin** button on the card: releases it and cancels its timeout - it persists | clear/close a pinned card: it fuses back (landing, swallow) and submerges; timeout of a fused card: submerges |
+| notification | arrives (`Notifications.popupList`), emerging from its band | fused to the band on its edge (`*_right`, `*_left`; the centre positions stay released) | a **Pin** button, or a drag away from the band past a threshold: releases it and cancels its timeout - it persists. Unpin (button, or a drag back into the band) fuses it back and restarts its clock | close (the x) or timeout: a released card lands first, then slides into the band. A drag never closes: away from the band it is elastic to a limit, and short of the threshold it springs back |
 | dock | reveal at the edge (unpinned) | fused: reveals out of the band and hides back into it | the dock's pin: released, reserves its edge (`DockReservation`) | unpin: lands, fuses; then hides into the band when the pointer leaves |
 | bar | always on | Hug style: the bar IS the band (fused, 26328624c); other styles: islands (released) | the style | auto-hide in frame mode is a split (out of scope here, frame-one-surface.md §7) |
 
@@ -127,6 +127,13 @@ translucent against the band, it is the band.
 - **The strip is per key.** A calendar popup is taller than a dock; the frame's pinned strip is
   720 px deep for `barPopup`, 480 for `notification:*`, 160 for the dock, and constant per key
   - a strip that grew with the plate would remake the field every frame.
+- **Dragging** (review, round 3): away from the band the pull is elastic - `tanh` toward 1.5x
+  the elevation margin - and past the margin it pins; back into the band past it it unpins;
+  released short of either it springs back; it never closes. The pull rides the join's gap in
+  the record so the neck stretches under the hand, and on release `FrameJoin.disturb` continues
+  the join from where the hand left it. Unpinning restarts the timeout rather than dismissing.
+- **A fusing popup reserves the bar's zone itself** (`roomOn`): the frame's insets count the bar
+  only where it is the band, and with the Float style the card sat under the bar's icons.
 - **Not driven in the sandbox:** the click that pins (the nested compositor has no
   pointer-button dispatcher). The release and the landing are verified as the fused/released
   geometry pair and by the dock's identical physics; the mid-motion look is the user's review.
