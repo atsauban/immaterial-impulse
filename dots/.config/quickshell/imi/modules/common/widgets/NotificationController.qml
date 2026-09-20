@@ -59,6 +59,9 @@ QtObject {
     function cancelTimeout(notif): void {
         Notifications.cancelTimeout(notif.notificationId);
     }
+    function resumeTimeout(notif): void {
+        Notifications.restartTimeout(notif.notificationId);
+    }
 
     // The card draws `{ text, identifier }`. The freedesktop model already
     // carries that shape; a backend whose actions are bare strings maps them

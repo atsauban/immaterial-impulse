@@ -127,6 +127,15 @@ Item {
         stepper.running = true;
     }
     onActiveChanged: if (!root.active) root.state = Fluid.rest(root.target);
+    // A hand let go: the join continues from where the hand left the plate
+    // (`gap` px off the band, at rest) toward whatever `attached` now says -
+    // a drag that pinned settles up to the travel, one that did not springs
+    // back, and neither jumps.
+    function disturb(gap: real): void {
+        if (!root.active) return;
+        root.state = Object.assign({}, root.state, { gap: Math.max(0, gap), speed: 0, settled: false });
+        stepper.running = true;
+    }
 
     FrameAnimation {
         id: stepper

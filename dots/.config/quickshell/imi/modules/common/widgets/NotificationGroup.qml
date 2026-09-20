@@ -47,19 +47,45 @@ MouseArea { // Notification group area
     readonly property bool joinAttached: root.frameLook === "fused" || !root.pinned || root.closing
     readonly property bool plateOnFrame: root.joinsFrame && cardJoin.drawsPlate
     // The card's offset off the band along the edge's normal: the lift.
-    readonly property real liftOffset: root.frameEdge === "right" ? -cardJoin.lift
-        : root.frameEdge === "left" ? cardJoin.lift : 0
+    readonly property real liftOffset: root.frameEdge === "right" ? -(cardJoin.lift + root.dragPull)
+        : root.frameEdge === "left" ? cardJoin.lift + root.dragPull : 0
     readonly property string joinKey: "notification:" + (root.shownGroup?.appName ?? "")
     function pin(): void {
         root.pinned = true;
         leaveHideTimer.stop();
         root.notifications.forEach(notif => root.controller.cancelTimeout(notif));
     }
-    // Unpinning is dismissal: back onto the band first where there is one,
-    // then into it, then the timeout.
+    // Unpinning fuses the card back (it lands on the band) and puts it back
+    // on the clock; closing is the x, or the timeout when it comes.
     function unpin(): void {
         root.pinned = false;
-        root.timeOutWithAnimation();
+        root.notifications.forEach(notif => root.controller.resumeTimeout(notif));
+    }
+
+    // --- dragging, where the frame paints (frame-pin-grammar.md §2) -------
+    // Away from the band the pull is elastic - it stiffens toward a limit
+    // and never lets go of the card - and past a threshold it pins; back
+    // into the band past the threshold it unpins; released short of either
+    // it springs back to where it was. A drag never closes a card here.
+    property real dragPull: 0
+    readonly property real dragLimit: Appearance.sizes.elevationMargin * 1.5
+    readonly property real dragThreshold: Appearance.sizes.elevationMargin
+    function elastic(d: real): real {
+        const limit = root.dragLimit;
+        return limit * Math.tanh(d / limit);
+    }
+    function frameDragUpdate(diffX: real): void {
+        const away = root.frameEdge === "right" ? -diffX : diffX;
+        const base = cardJoin.state.gap;
+        root.dragPull = away >= 0 ? root.elastic(away) : -Math.min(base, root.elastic(-away));
+    }
+    function frameDragRelease(diffX: real): void {
+        const away = root.frameEdge === "right" ? -diffX : diffX;
+        const from = cardJoin.state.gap + root.dragPull;
+        root.dragPull = 0;
+        if (!root.pinned && away >= root.dragThreshold) root.pin();
+        else if (root.pinned && -away >= root.dragThreshold) root.unpin();
+        cardJoin.disturb(from);
     }
     FrameJoin {
         id: cardJoin
@@ -99,7 +125,7 @@ MouseArea { // Notification group area
             plate: { x: at.x, y: at.y, width: background.width, height: background.height },
             radii: { topLeft: background.radius, topRight: background.radius,
                      bottomRight: background.radius, bottomLeft: background.radius },
-            gap: cardJoin.state.gap, neck: cardJoin.state.neck, bulge: cardJoin.state.bulge,
+            gap: cardJoin.state.gap + root.dragPull, neck: cardJoin.state.neck, bulge: cardJoin.state.bulge,
             meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
             climbFraction: cardJoin.climbFraction, color: root.platePaint
         };
@@ -291,10 +317,16 @@ MouseArea { // Notification group area
         }
 
         onDragDiffXChanged: () => {
-            root.qmlParent.dragDistance = dragDiffX;
+            if (root.joinsFrame) root.frameDragUpdate(dragDiffX);
+            else root.qmlParent.dragDistance = dragDiffX;
         }
 
         onDragReleased: (diffX, diffY) => {
+            if (root.joinsFrame) {
+                root.frameDragRelease(diffX);
+                dragManager.resetDrag();
+                return;
+            }
             if (Math.abs(diffX) > root.dragConfirmThreshold)
                 root.destroyWithAnimation(diffX < 0);
             else 
@@ -442,7 +474,7 @@ MouseArea { // Notification group area
                             }
                         }
                         StyledToolTip {
-                            text: root.pinned ? Translation.tr("Unpin and dismiss") : Translation.tr("Pin: keep it here")
+                            text: root.pinned ? Translation.tr("Unpin") : Translation.tr("Pin: keep it here")
                         }
                     }
                     NotificationGroupExpandButton {

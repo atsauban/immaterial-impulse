@@ -37,6 +37,14 @@ Scope {
         readonly property string frameEdge: root.isRight ? "right" : root.isLeft ? "left" : ""
         readonly property bool frameFused: FrameGeometry.enabled && root.frameEdge !== ""
             && String(Config.options.appearance.frame.notifications ?? "auto") !== "released"
+        // Ignoring exclusion, the window reserves the bar's zone itself. The
+        // frame's insets count the bar only where it IS the band (Hug); a
+        // floating or island bar still holds its zone, and a card at the
+        // band's depth sat under its icons (reported with the Float style).
+        function roomOn(edge: string): real {
+            const bar = FrameGeometry.barEdge === edge ? FrameGeometry.barThickness + FrameGeometry.gap : 0;
+            return Math.max(bar, FrameGeometry.insets[edge]);
+        }
 
         WlrLayershell.namespace: "quickshell:notificationPopup"
         WlrLayershell.layer: WlrLayer.Overlay
@@ -111,8 +119,8 @@ Scope {
             controller: popupController
             frameEdge: root.frameFused ? root.frameEdge : ""
             screenName: root.screen?.name ?? ""
-            anchors.topMargin: (root.frameFused ? FrameGeometry.insets.top : 0) + Appearance.spacing.space50
-            anchors.bottomMargin: (root.frameFused ? FrameGeometry.insets.bottom : 0) + Appearance.spacing.space50
+            anchors.topMargin: (root.frameFused ? root.roomOn("top") : 0) + Appearance.spacing.space50
+            anchors.bottomMargin: (root.frameFused ? root.roomOn("bottom") : 0) + Appearance.spacing.space50
             width: Appearance.sizes.notificationPopupWidth
             popup: true
             verticalLayoutDirection: root.isBottom ? ListView.BottomToTop : ListView.TopToBottom

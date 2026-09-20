@@ -392,6 +392,7 @@ class FrameModeContract(unittest.TestCase):
         self.assertNotIn("GlobalStates", group)
         self.assertIn('readonly property bool joinAttached: root.frameLook === "fused" || !root.pinned || root.closing', group)
         self.assertIn("onClicked: root.pinned ? root.unpin() : root.pin()", group)
+        self.assertNotIn("Unpin and dismiss", group)
         # A fused card LEAVES before the model drops it: the service announces
         # a popup's expiry, the window slides the card into its band and only
         # then times it out (a fallback covers a window that is not showing
@@ -412,6 +413,17 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn('animations: (root.frameEdge === "" && root.animateAppearance) ? [', _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))
         self.assertIn("card.dismissWithAnimation(() => Notifications.discardNotification(id));", popup)
         self.assertIn("controller: popupController", popup)
+        # Review round 3: a fusing popup reserves the bar's zone itself (the
+        # frame's insets count the bar only where it is the band); dragging
+        # is the grammar - elastic, pins past a threshold, unpins back into
+        # the band, never closes - and unpinning fuses back and resumes the
+        # clock rather than dismissing.
+        self.assertIn('function roomOn(edge: string): real', popup)
+        self.assertIn("function disturb(gap: real): void", _strip((ROOT / "modules/common/widgets/FrameJoin.qml").read_text()))
+        self.assertIn("function frameDragRelease(diffX: real): void", group)
+        self.assertIn("if (!root.pinned && away >= root.dragThreshold) root.pin();", group)
+        self.assertIn("root.notifications.forEach(notif => root.controller.resumeTimeout(notif));", group)
+        self.assertIn("function restartTimeout(id)", service)
         self.assertIn("function cardFor(id): var", _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))
         self.assertIn("if (card) card.dismissWithAnimation(() => Notifications.timeoutNotification(id));", popup)
         self.assertIn('removeToLeft: root.frameEdge === "left"', _strip((ROOT / "modules/common/widgets/NotificationListView.qml").read_text()))

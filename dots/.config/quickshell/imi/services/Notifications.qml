@@ -273,6 +273,12 @@ Singleton {
             root.list[index].timer.stop();
     }
 
+    // The timer runs again from the start: a card unpinned goes back to
+    // being a popup on the clock.
+    function restartTimeout(id) {
+        const notif = root.list.find((n) => n.notificationId === id);
+        if (notif?.timer) notif.timer.restart();
+    }
     function timeoutNotification(id) {
         const index = root.list.findIndex((notif) => notif.notificationId === id);
         if (root.list[index] != null)
