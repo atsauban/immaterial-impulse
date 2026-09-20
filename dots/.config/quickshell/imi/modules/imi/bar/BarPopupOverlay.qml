@@ -235,7 +235,20 @@ Scope {
                     // a click landing on the card mid-morph is aimed at the
                     // content the pointer moved toward.
                     previous.contentItem.enabled = false;
-                    contentExit.target = previous.contentItem;
+                    // ...and a picture holds still. Left centred in the slot
+                    // - which is already the ARRIVING content's settled box -
+                    // a taller outgoing tree showed its middle band the moment
+                    // the slot shrank: the header cut away, the rows below it
+                    // jumping to the top, then the clip walking over them
+                    // (footage: weather to calendar). Pinned to the host's
+                    // top-left it keeps the top the user was reading and the
+                    // card's edge covers it from below and from the right.
+                    const leaving = previous.contentItem;
+                    leaving.anchors.centerIn = null;
+                    leaving.parent = contentHost;
+                    leaving.anchors.top = contentHost.top;
+                    leaving.anchors.left = contentHost.left;
+                    contentExit.target = leaving;
                     contentExit.restart();
                 }
 
@@ -468,6 +481,8 @@ Scope {
                 const content = popup.contentItem;
                 if (content) {
                     content.anchors.centerIn = null;
+                    content.anchors.top = undefined;
+                    content.anchors.left = undefined;
                     content.parent = null;
                     content.opacity = 1;
                     content.enabled = true;
