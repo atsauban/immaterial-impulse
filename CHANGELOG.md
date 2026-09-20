@@ -27,7 +27,8 @@ own repo; the installer pins which revision it builds.
   compositor's gap, corners rounding; pin it with `qs -c imi ipc call bar togglePin` to
   keep it floating. In frame mode Hug and Float are states, not styles: the Bar style row
   becomes Plate / Islands / M3 with a Bar state row (Auto / Hug / Float) beside it, and the
-  Islands style follows the same state, each island rising out of the band. Settings >
+  Islands style follows the same state, each island rising out of the band, and its widget
+  popups fuse to their island and release on a pin like the plate's do. Settings >
   Appearance > Frame gains a row each for popups and notifications.
 
 ## [1.2.0] — 2026-09-20

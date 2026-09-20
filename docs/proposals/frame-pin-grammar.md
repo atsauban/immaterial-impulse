@@ -202,8 +202,19 @@ translucent against the band, it is the band.
   Appearance > Frame), Islands (2) is out of the row until its rework, Float (1) reads as the
   plate. The Islands style follows the same state: hugging, each island reaches up to the band's
   inner edge, band-side corners square, the frame's colour, no border; floating, as it was. The
-  islands move on the tween, not the fluid spring, and the frame does not paint them yet - a
+  islands move on the tween, not the fluid spring, and the frame does not paint them at rest - a
   per-island join with its own meniscus is the next slice.
+- **Islands treat popups like the plate** (review). A hover popup fuses to its section's island,
+  a pin releases it, same grammar (`FrameGeometry.popupsJoinBar`). Two bodies of different
+  widths meet, and the narrower is the drop: a card under a wider island climbs onto it with
+  its fillets as onto the plate; an island narrower than its card is the drop and ITS fillets
+  climb onto the card's edge (`BarPopupOverlay.islandDrops` - the other way a wedge sat at each
+  of the card's top corners). The frame paints both bodies while the card is up - the island as
+  a record `"barIsland"` with the section's name, the card as `"barPopup"` - so the pair is one
+  paint in the layer with no seam between windows; the bar's own island stands down by section
+  (`Island.onFrame`), and the two records name each other's edges (`joinBandEdgeFor`). These two
+  keys take the plate's own box instead of a pinned strip: inside `paintLayer` a ShaderEffect
+  follows its own geometry again (measured), and their band edge moves with the lift.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
