@@ -65,7 +65,9 @@ class SelectionArrayFlowTests(unittest.TestCase):
     def test_the_quick_pages_card_rows_take_their_cards_width(self):
         quick = strip_comments((ROOT / "modules/imi/settings/pages/QuickConfig.qml").read_text(encoding="utf-8"))
         arrays = re.findall(r"ConfigSelectionArray \{(.*?)\n\s{24}\}", quick, re.S)
-        card_rows = [a for a in arrays if "currentValue: Config.options.bar." in a]
+        # The bar style row reads its value through a frame-mode branch, so the
+        # detector matches the setting anywhere in the binding, not only at its start.
+        card_rows = [a for a in arrays if re.search(r"currentValue:.*Config\.options\.bar\.", a)]
         self.assertGreaterEqual(len(card_rows), 2)
         for body in card_rows:
             self.assertNotIn("Layout.fillWidth: false", body,
