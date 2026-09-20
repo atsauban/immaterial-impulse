@@ -178,6 +178,7 @@ Scope {
 
             function takeOver(popup) {
                 exitTimer.stop();
+                overlayWindow.landing = false;
                 overlayWindow.exiting = false;
                 // No opacity or progress write here: retarget() drives the one
                 // scalar, one turn of the event loop from now, and it is the
@@ -268,13 +269,15 @@ Scope {
             // target is one frame away - the same zero-interval deferral, for
             // the same reason, as the popup window's own updatePosition().
             function retarget() {
-                // Never under an exit: the write of openProgress below is the
-                // opening's, and a leaving card re-opened by it lands and
+                // Never under a submerge: the write of openProgress below is
+                // the opening's, and a leaving card re-opened by it lands and
                 // then vanishes at the exit timer instead of submerging. The
                 // Privacy card resizes as its controls collapse on unpin,
                 // which retargets a content-driven card - dismissed by a
                 // click away, that collapse ran under its own exit (footage).
-                if (overlayWindow.exiting) return;
+                // While the card is still LANDING it may follow its content:
+                // the collapse and the landing are one motion there.
+                if (overlayWindow.exiting && !overlayWindow.landing) return;
                 const popup = overlayWindow.current;
                 const content = popup?.contentItem;
                 const target = popup?.hoverTarget;
@@ -376,10 +379,41 @@ Scope {
                 overlayWindow.exiting = true;
                 if (overlayWindow.current?.contentItem)
                     overlayWindow.current.contentItem.enabled = false;
-                card.alongBar = anchor;
+                // A released card lands FIRST, then submerges (the grammar's
+                // close: swallow into the band, then sink). `exiting` alone
+                // turns the join attached; the collapse waits for it to
+                // settle, else the card shrank while still coming down and
+                // read as vanishing without ever fusing back (footage).
+                if (overlayWindow.joinsFrame && cardJoin.lift > 0.5) {
+                    overlayWindow.landing = true;
+                    return;
+                }
+                overlayWindow.submerge();
+            }
+            // The exit's second half: the card sinks into the band it sits on.
+            property bool landing: false
+            function submerge() {
+                overlayWindow.landing = false;
+                if (!overlayWindow.exiting) return;
+                const anchor = overlayWindow.anchorAlongBar();
+                if (anchor !== null && anchor !== undefined) card.alongBar = anchor;
                 card.width = card.parkedSize;
                 card.openProgress = 0;
                 exitTimer.restart();
+            }
+            // The landing is over when the gap is closed and the neck whole,
+            // not when the spring has stopped ringing: the last tenth of a
+            // pixel took half a second to settle, and the card sat fused and
+            // still for it before it sank (measured, 670 ms from dismiss to
+            // submerge).
+            Connections {
+                target: cardJoin
+                function onStateChanged() {
+                    if (overlayWindow.landing && cardJoin.lift < 0.75 && cardJoin.state.neck > 0.9) overlayWindow.submerge();
+                }
+                function onMovingChanged() {
+                    if (!cardJoin.moving && overlayWindow.landing) overlayWindow.submerge();
+                }
             }
 
             function finishExit() {
@@ -403,6 +437,7 @@ Scope {
                 overlayWindow.outgoing = null;
                 overlayWindow.current = null;
                 overlayWindow.exiting = false;
+                overlayWindow.landing = false;
 
                 card.animate = false;
                 card.openProgress = 0;
@@ -527,7 +562,13 @@ Scope {
             }
 
             function retargetNow() {
-                if (overlayWindow.current?.contentDrivesSize) overlayWindow.retarget();
+                // Content-driven: the card follows the content every frame,
+                // but after the layout has settled, not from inside its
+                // change. Read synchronously the Privacy card's column
+                // reported two heights a few ms apart on every frame of its
+                // collapse (339 then 204, 320 then 204, ...) and the card
+                // thrashed between them (measured).
+                if (overlayWindow.current?.contentDrivesSize) Qt.callLater(overlayWindow.retarget);
                 else retargetTimer.restart();
             }
 
@@ -693,6 +734,14 @@ Scope {
             Behavior on platePaint { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }
             readonly property var frameJoinRecord: {
                 if (!cardJoin.active || !cardJoin.painting || !overlayWindow.modelData) return null;
+                // Nothing to paint for a card with no height - and the neck
+                // grows and shrinks with the card: a fused card is a drop
+                // that grows out of the band and sinks back into it, so its
+                // fillets are as tall as it is. Held whole to the end, a
+                // collapsed card left a stalk under the bar until the exit
+                // timer ran out (measured, ~200 ms).
+                if (card.height <= 3) return null;
+                const grown = Math.pow(Math.min(1, card.height / Math.max(1, cardJoin.meniscus)), 2);
                 return {
                     edge: overlayWindow.barEdge,
                     section: overlayWindow.islandSection,
@@ -700,8 +749,8 @@ Scope {
                     radii: { topLeft: card.radius, topRight: card.radius,
                              bottomRight: card.radius, bottomLeft: card.radius },
                     gap: cardJoin.state.gap,
-                    neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck,
-                    bulge: overlayWindow.cardOverhangs ? 0 : cardJoin.state.bulge,
+                    neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck * grown,
+                    bulge: overlayWindow.cardOverhangs ? 0 : cardJoin.state.bulge * grown,
                     meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
                     climbFraction: cardJoin.climbFraction, color: overlayWindow.platePaint
                 };

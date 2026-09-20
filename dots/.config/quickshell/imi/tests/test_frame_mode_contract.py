@@ -503,7 +503,8 @@ class FrameModeContract(unittest.TestCase):
         # island (the span is taken up with barInner, never bound).
         self.assertIn("const span = overlayWindow.joinSpan();", overlay)
         self.assertIn("if (hi < lo) lo = hi = (span.min + span.max - cardWidth) / 2;", overlay)
-        self.assertIn("neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck,", overlay)
+        self.assertIn("neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck * grown,", overlay, "the fillets are as tall as the card")
+        self.assertIn("if (card.height <= 3) return null;", overlay, "no stalk under the bar for a collapsed card")
         self.assertIn("if (!was || was.min !== span.min || was.max !== span.max) overlayWindow.plateSpan = span;", overlay)
         self.assertIn('const isl = key === "barPopup" && pop && pop.section ? (surface.joins["barIsland:" + pop.section] ?? null) : null;', frame)
         self.assertNotIn("property bool pinned:", frame, "every field keeps its pinned strip (NVIDIA: the trap holds inside the layer)")
