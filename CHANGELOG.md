@@ -11,6 +11,8 @@ own repo; the installer pins which revision it builds.
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-09-20
+
 ### Added
 - **The assistant can change things, after you approve.** Eight reviewed
   tools: `write_file` / `append_file` (inside the folders you allowed, the
@@ -67,6 +69,16 @@ own repo; the installer pins which revision it builds.
   line. Not built: Proton Mail (needs Proton Bridge), Proton Pass (no API).
 
 ### Changed
+- Frame mode is one surface per screen that paints the dock's plate and, in the
+  Hug bar style, the bar's plate as its band: dock, band and bar are one outline
+  under one blur, and the blur under the join follows the meniscus to the pixel.
+  Groundwork for glass.
+- Dock: an icon arriving or leaving, the media tile and the separators take their
+  room on the fluid's own spring rather than a tween, and the plate, the meniscus
+  and the blur breathe with them. The motion speed slider and reduce motion now
+  reach the join's physics too.
+- Developer mode: the cheatsheet has a "Frame join" tab showing every surface's
+  join at true size (also `qs -p bench_frame_join.qml`).
 - Frame mode's dock switch (Settings > Appearance > Frame > Dock) is a motion now: the
   pill lifts off the frame's band and sinks back onto it - a neck in the band's colour
   bridging the seam, the outward corners rounding as the gap opens, the border and
@@ -133,6 +145,13 @@ own repo; the installer pins which revision it builds.
   `applycolor` and presets read the new file.
 
 ### Fixed
+- Frame mode: the dock's plate no longer keeps its old width when an item appears
+  or disappears, catching up at some random later moment - two rendering traps,
+  a repaint lost while another window animates and a shader's own move never
+  reaching the scene graph, both told in docs/proposals/frame-one-surface.md.
+- Frame mode: the faint off-coloured regions beside the dock's meniscus are gone
+  (the blur region overshot the concave fillet), and the join no longer costs a
+  fifth of a frame per field at 240 Hz.
 - Settings > Services: the AI system prompt has a field made for long text
   (label above, full width, grows to ten lines, then scrolls inside with the
   caret kept in view) instead of a one-line value field it could not fit in.
@@ -3985,7 +4004,8 @@ illogical-impulse), collecting the work done to date:
   (`Super`+`/`).
 - This changelog and versioning.
 
-[Unreleased]: https://github.com/XephyLon/immaterial-impulse/compare/v0.32.0...HEAD
+[Unreleased]: https://github.com/XephyLon/immaterial-impulse/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/XephyLon/immaterial-impulse/compare/v1.1.0...v1.2.0
 [0.32.0]: https://github.com/XephyLon/immaterial-impulse/compare/v0.31.2...v0.32.0
 [0.31.2]: https://github.com/XephyLon/immaterial-impulse/compare/v0.31.1...v0.31.2
 [0.31.1]: https://github.com/XephyLon/immaterial-impulse/compare/v0.31.0...v0.31.1
