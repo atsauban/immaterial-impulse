@@ -22,26 +22,32 @@
 
 // --- the constants that are the feel ---------------------------------------
 
-// The drop's own spring toward where it has been asked to be, and its
-// damping. Under-damped on purpose: the ring after a landing is the pond
-// settling.
-var K_POS = 110;
-var C_POS = 5;
+// THE NUMBERS BELOW ARE A CHOSEN MODEL, not a tuning. Six were built and run
+// side by side against each other (scratchpad split-studies, `Cleavage, both
+// ends`), and this is the one picked: travel 8, wobble 0%, slant 110%, cut
+// 80%, the bridge letting go at 242 ms. Changing any of them changes which
+// model this is, so change them together or not at all.
 
-// The bridge's pull, per pixel of stretch, at full width. A RUBBER BAND, not
-// a clamp: it pulls harder the further the two are pulled apart and weaker as
-// the bridge thins, so the bodies separate WHILE the furrow deepens - which is
-// the whole thing the eye is watching. A constant pull instead pinned the gap
-// at zero until the bridge had already gone, and then the split was a jump
-// with nothing between the two (measured: the bridge was down to 0.06 by the
-// time the gap reached a single pixel, so there was never a visible neck).
-var TENSION = 90;
+// The drop's own spring toward where it has been asked to be, and its
+// damping. Cleavage is a CUT, not a throw: the bodies hardly move until the
+// bridge goes, so the spring is stiff and the damping high enough that
+// nothing rings afterwards - the pinch is the event, not the travel.
+var K_POS = 150;
+var C_POS = 14.29;
+
+// The bridge's pull at full width. A CLAMP, not a rubber band: it holds with
+// the same force however far the two are pulled, and weakens only as the
+// bridge itself thins. So the gap stays at nothing while a ring cuts inward,
+// and the two part when the bridge lets go rather than while it stretches.
+// The rubber band - pull proportional to the stretch as well - is the other
+// study, `Rubber bridge`, and it separates the whole way down.
+var TENSION = 900;
 
 // How fast a neck under stress thins, and how much faster a thin one goes.
 // The runaway is the whole character of the break: at a full neck this is
 // slow, and by the time it is half gone it is three times faster.
-var THIN = 1.5;
-var THIN_RUNAWAY = 4.0;
+var THIN = 1.52;
+var THIN_RUNAWAY = 5.0;
 
 // How fast a neck opens once the pond has the drop, and how close the drop
 // has to be for that to happen. Coalescence is much faster than separation -
@@ -53,7 +59,7 @@ var CONTACT_GAP = 1.5;
 // stiffly it returns, how fast that ringing dies.
 var SHAPE_PER_SPEED = 0.06;
 var K_SHAPE = 300;
-var C_SHAPE = 6;
+var C_SHAPE = 17.14;
 // How far the shape may go, either way, so a fast gesture cannot fold the
 // pill through itself.
 var SHAPE_LIMIT = 5;
@@ -73,10 +79,10 @@ function furrow(bridge) {
     var b = Math.max(0, Math.min(1, Number(bridge) || 0));
     return 4 * b * (1 - b);
 }
-var BULGE_GAIN = 3.5;
+var BULGE_GAIN = 2.4;
 var K_BULGE = 350;
-var C_BULGE = 7;
-var SHAPE_FURROW = 2.2;
+var C_BULGE = 20.0;
+var SHAPE_FURROW = 2.8;
 
 // The longest step to integrate in one go. A frame that took longer (a
 // stall, a resume from sleep) is walked in pieces instead.
@@ -148,7 +154,7 @@ function step(st, target, dt) {
         // never came to rest, and every frame kicked the shape oscillator
         // through the floor clamp below.
         var pull = K_POS * (t - s.gap);
-        var tension = (pull > 0 || s.gap > 0) ? TENSION * s.neck * s.gap : 0;
+        var tension = (pull > 0 || s.gap > 0) ? TENSION * s.neck : 0;
         var accel = pull - C_POS * s.speed - tension;
         s.speed += accel * h;
         s.gap += s.speed * h;
@@ -209,8 +215,51 @@ function blend(st, meniscus, perPixel) {
     return m + k * Math.max(0, st.gap);
 }
 
-// How round the drop's outward corners are: square while a neck still bridges
-// them, round once it has gone, and eased between so a corner never jumps.
-function cornerRound(st) {
-    return Math.max(0, Math.min(1, 1 - st.neck));
+// The drop's outward corners are NOT part of this. They keep their radius the
+// whole way, so the meniscus wraps the corner instead of the corner
+// disappearing under it - squaring them made the body read as losing height
+// on the way out, since what the eye measures is the flat flank between the
+// corners.
+
+// --- a size the body owns ---------------------------------------------------
+
+// The dock's row breathes: an icon arrives or leaves, the media tile comes
+// and goes, a separator with it, and the pill has to take the new length.
+// That is not a tween between two widths. A drop that swallows another
+// spreads, overshoots, and draws back as its skin catches up - so the pill's
+// slots ride the SAME spring the drop's position does (K_POS, C_POS: about
+// 12 rad/s, damping 0.58, a tenth of the step in overshoot), and the plate,
+// the meniscus and the blur outline, all derived from the row, follow it
+// frame by frame. A slot is one degree of freedom; nothing about the neck is
+// involved, so it gets its own small state rather than a field on the join's.
+function springRest(value) {
+    var v = Number(value) || 0;
+    return { value: v, speed: 0, settled: true };
+}
+
+// True once the slot is close enough to stop stepping - the same fifth of a
+// pixel the join uses, for the same reason.
+function springSettled(st, target) {
+    return Math.abs(st.value - target) < 0.15 && Math.abs(st.speed) < 1.5;
+}
+
+// One step toward `target`. Returns a NEW state; on settling it lands ON the
+// target, so a layout never sits a fraction of a pixel off its own content.
+function spring(st, target, dt) {
+    var t = Number(target) || 0;
+    var remaining = Math.max(0, Number(dt) || 0);
+    var s = { value: st.value, speed: st.speed, settled: false };
+    while (remaining > 0) {
+        var h = Math.min(MAX_STEP, remaining);
+        remaining -= h;
+        var accel = K_POS * (t - s.value) - C_POS * s.speed;
+        s.speed += accel * h;
+        s.value += s.speed * h;
+    }
+    if (springSettled(s, t)) {
+        s.value = t;
+        s.speed = 0;
+        s.settled = true;
+    }
+    return s;
 }
