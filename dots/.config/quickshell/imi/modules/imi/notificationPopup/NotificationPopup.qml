@@ -42,7 +42,10 @@ Scope {
         // floating or island bar still holds its zone, and a card at the
         // band's depth sat under its icons (reported with the Float style).
         function roomOn(edge: string): real {
-            const bar = FrameGeometry.barEdge === edge ? FrameGeometry.barThickness + FrameGeometry.gap : 0;
+            // A released bar reserves its lift too (Bar.qml releaseZoneExtra,
+            // carried on its join record) - the cards keep clear of that.
+            const extra = GlobalStates.frameJoins[root.screen?.name ?? ""]?.bar?.zoneExtra ?? 0;
+            const bar = FrameGeometry.barEdge === edge ? FrameGeometry.barThickness + FrameGeometry.gap + extra : 0;
             return Math.max(bar, FrameGeometry.insets[edge]);
         }
 

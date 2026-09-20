@@ -50,7 +50,7 @@ class FrameModeContract(unittest.TestCase):
         frame = _strip(FRAME.read_text())
         corners = _strip(CORNERS.read_text())
         self.assertIn("property real barExclusiveZone: root.sizes.barReservedHeight", appearance)
-        self.assertIn("zone: (Config?.options.bar.autoHide.enable && (!barRoot.mustShow || !Config?.options.bar.autoHide.pushWindows))\n                        ? 0 : Appearance.sizes.barReservedHeight",
+        self.assertIn("zone: (Config?.options.bar.autoHide.enable && (!barRoot.mustShow || !Config?.options.bar.autoHide.pushWindows))\n                        ? 0 : Appearance.sizes.barReservedHeight + barRoot.releaseZoneExtra",
                       _strip((ROOT / "modules/imi/bar/Bar.qml").read_text()))
         # No inner fillet and no inner radius: the frame's corners are the
         # SCREEN's corners, the bezel ScreenCorners draws in black.
@@ -442,7 +442,8 @@ class FrameModeContract(unittest.TestCase):
         # "bar" like the dock's - fused on the hairline, or released a gap off
         # it by workspace occupancy or the pin - and BarContent stands its
         # plate down while the frame paints it. The band on the bar's edge
-        # stays the hairline; the exclusive zone never moves.
+        # stays the hairline; released, the bar reserves its lift as well
+        # (the dock's flip rule), so an island never sits on a window.
         geometry = _strip(GEOMETRY.read_text())
         self.assertIn("readonly property bool paintsBarPlate: root.enabled && root.barCovers", geometry)
         self.assertIn("function barAttachedFor(pinned: bool, occupied: bool): bool", geometry)
@@ -453,6 +454,9 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn('GlobalStates.publishFrameJoin(name, "bar", record);', barWindow)
         self.assertIn("readonly property bool joinAttached: FrameGeometry.barAttachedFor(GlobalStates.barPinned, barRoot.barOccupied)", barWindow)
         self.assertIn("plateOnFrame: barJoin.drawsPlate && !barContent.centerOnly && Config.options.bar.showBackground", barWindow)
+        self.assertIn("? DockGeometry.splitZoneExtra(barJoin.travel, !barRoot.joinAttached, barJoin.lift) : 0", barWindow)
+        self.assertIn("zoneExtra: barRoot.releaseZoneExtra", barWindow)
+        self.assertIn('GlobalStates.frameJoins[root.screen?.name ?? ""]?.bar?.zoneExtra ?? 0', _strip((ROOT / "modules/imi/notificationPopup/NotificationPopup.qml").read_text()))
         self.assertIn("readonly property var occupiedByMonitorName:", _strip((ROOT / "services/HyprlandData.qml").read_text()))
         states = _strip((ROOT / "GlobalStates.qml").read_text())
         self.assertIn("property bool barPinned: false", states)

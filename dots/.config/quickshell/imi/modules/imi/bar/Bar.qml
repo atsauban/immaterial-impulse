@@ -10,6 +10,7 @@ import qs.services
 import qs.modules.common
 import qs.modules.common.widgets
 import qs.modules.imi.dropShelf
+import "../dock/dock_geometry.js" as DockGeometry
 
 Scope {
     id: bar
@@ -89,7 +90,7 @@ Scope {
                     edgeMargin: Config.options.bar.bottom
                         ? Appearance.sizes.barBottomMargin : Appearance.sizes.barDetachMargin
                     zone: (Config?.options.bar.autoHide.enable && (!barRoot.mustShow || !Config?.options.bar.autoHide.pushWindows))
-                        ? 0 : Appearance.sizes.barReservedHeight
+                        ? 0 : Appearance.sizes.barReservedHeight + barRoot.releaseZoneExtra
                 }
                 WlrLayershell.namespace: "quickshell:bar"
                 // Overlay layer only while special workspace sits on top of a fullscreen window on this monitor,
@@ -227,9 +228,14 @@ Scope {
                 // while nothing is on the workspace and nothing pins it. The
                 // frame paints the plate in both states (published under
                 // "bar" like the dock's); BarContent stands its own plate
-                // down while it does. The exclusive zone does not move with
-                // it - the lift lives inside the gap the compositor already
-                // leaves, so windows never re-tile for it.
+                // down while it does. Released, the bar reserves its lift as
+                // well (releaseZoneExtra, on the reserver): a plate lifted
+                // by the gap with the zone held would sit ON the first
+                // window's edge, and an island touching a window is not an
+                // island (measured, 8x). The extra flips at the start of a
+                // lift and the end of a landing - the dock's rule - so the
+                // compositor re-tiles once per state change, on its own
+                // animation.
                 readonly property bool barOccupied: HyprlandData.occupiedByMonitorName[barRoot.screen?.name ?? ""] ?? false
                 readonly property bool joinAttached: FrameGeometry.barAttachedFor(GlobalStates.barPinned, barRoot.barOccupied)
                 // The band's inner edge in this window's frame: the surface
@@ -255,6 +261,8 @@ Scope {
                 readonly property real plateSideInset: barJoin.active ? FrameGeometry.bandExtent("left") + barJoin.lift : 0
                 readonly property real plateRadius: barJoin.active && barJoin.travel > 0
                     ? Appearance.rounding.windowRounding * Math.min(1, barJoin.lift / barJoin.travel) : 0
+                readonly property real releaseZoneExtra: barJoin.active
+                    ? DockGeometry.splitZoneExtra(barJoin.travel, !barRoot.joinAttached, barJoin.lift) : 0
                 readonly property var frameJoinRecord: {
                     if (!barJoin.active || !barJoin.painting || !barRoot.screen) return null;
                     const p = barContent.backgroundItem;
@@ -273,7 +281,10 @@ Scope {
                         radii: { topLeft: p.radius, topRight: p.radius, bottomRight: p.radius, bottomLeft: p.radius },
                         gap: barJoin.state.gap, neck: barJoin.state.neck, bulge: barJoin.state.bulge,
                         meniscus: barJoin.meniscus, blendPerPixel: barJoin.blendPerPixel,
-                        climbFraction: barJoin.climbFraction, color: FrameGeometry.color
+                        climbFraction: barJoin.climbFraction, color: FrameGeometry.color,
+                        // What the bar reserves beyond its settled zone while
+                        // released, for whoever keeps clear of the bar's edge.
+                        zoneExtra: barRoot.releaseZoneExtra
                     };
                 }
                 function publishFrameJoin(record) {
