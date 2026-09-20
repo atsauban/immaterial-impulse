@@ -663,9 +663,15 @@ ContentPage {
                             // natural width as a maximum and right-aligns, so the chips
                             // sit on the right and wrap only when the row cannot hold them.
                             Layout.fillWidth: true
-                            currentValue: Config.options.bar.cornerStyle
+                            // Frame mode: Hug and Float are the plate's states (Bar & Dock >
+                            // Positioning & Styles has the state row), Islands (2) awaits its rework.
+                            currentValue: FrameGeometry.enabled && Config.options.bar.cornerStyle === 1 ? 0 : Config.options.bar.cornerStyle
                             onSelected: newValue => { Config.options.bar.cornerStyle = newValue; }
-                            options: [
+                            options: FrameGeometry.enabled ? [
+                                { displayName: Translation.tr("Plate"), icon: "line_curve", value: 0 },
+                                { displayName: Translation.tr("Islands"), icon: "view_week", value: 4 },
+                                { displayName: Translation.tr("M3"), icon: "interests",  value: 3 }
+                            ] : [
                                 { displayName: Translation.tr("Hug"), icon: "line_curve", value: 0 },
                                 { displayName: Translation.tr("Float"), icon: "view_day",   value: 1 },
                                 { displayName: Translation.tr("Islands"), icon: "crop_3_2",   value: 2 },

@@ -440,6 +440,7 @@ Scope {
                         implicitHeight: Appearance.sizes.barHeight
                         plateOnFrame: barJoin.drawsPlate && !barContent.centerOnly && Config.options.bar.showBackground
                         plateRadius: barRoot.plateRadius
+                        frameHug: FrameGeometry.enabled && barRoot.joinAttached
                         anchors {
                             right: parent.right
                             left: parent.left

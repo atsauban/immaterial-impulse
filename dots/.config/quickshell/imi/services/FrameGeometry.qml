@@ -50,15 +50,19 @@ Singleton {
     // inset islands inside the frame, not the frame.
     readonly property bool paintsBarPlate: root.enabled && root.barCovers
     // How the bar meets its band (frame-pin-grammar.md, the bar row): "auto"
-    // follows the workspace and the pin - fused while the workspace is empty
-    // and nothing pins it, released (a gap off the band, an island) once a
-    // window is there or the bar is pinned - "attached" and "floating" force
-    // one look. The pin and the occupancy are the bar's facts, handed in.
+    // follows the workspace and the pin - fused (Hug) while a window is on
+    // the workspace and nothing pins the bar, since the frame is then the
+    // border around the windows; released (Float, an island a gap off the
+    // band) over an empty workspace or when pinned. Decided at review the
+    // other way round first and turned: "bar is set to hug but floats when
+    // there are windows - auto should be the opposite". "attached" and
+    // "floating" force one look. The pin and the occupancy are the bar's
+    // facts, handed in.
     readonly property string barLook: String(Config.options.appearance.frame.bar ?? "auto")
     function barAttachedFor(pinned: bool, occupied: bool): bool {
         if (root.barLook === "floating") return false;
         if (root.barLook === "attached") return true;
-        return !pinned && !occupied;
+        return !pinned && occupied;
     }
     readonly property real thickness: Geo.bandThickness(Config.options.appearance.frame.thickness)
     // How the dock meets the band on its edge, given its pin

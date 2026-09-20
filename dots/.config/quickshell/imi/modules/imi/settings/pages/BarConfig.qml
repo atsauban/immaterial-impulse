@@ -329,18 +329,47 @@ ContentPage {
                         { displayName: Translation.tr("Right"),  icon: "arrow_forward",  value: 3 }
                     ]
                 }
+                // Frame mode (the starter going forward; the styles below it are
+                // on their way out): Hug and Float are STATES of the plate, not
+                // styles - the state row picks them or lets the workspace decide -
+                // so the style row offers the plate, the islands (each following
+                // the same state) and M3, which only floats. Islands (2) is out of
+                // the row until its rework; Float (1) is read as the plate.
                 ConfigSelectionArray {
                     text: Translation.tr("Bar style")
                     icon: "style"
-                    currentValue: Config.options.bar.cornerStyle
+                    currentValue: FrameGeometry.enabled && Config.options.bar.cornerStyle === 1 ? 0 : Config.options.bar.cornerStyle
                     onSelected: newValue => { Config.options.bar.cornerStyle = newValue; }
-                    options: [
+                    options: FrameGeometry.enabled ? [
+                        { displayName: Translation.tr("Plate"),   icon: "line_curve", value: 0 },
+                        { displayName: Translation.tr("Islands"), icon: "view_week",  value: 4 },
+                        { displayName: Translation.tr("M3"),      icon: "interests",  value: 3 }
+                    ] : [
                         { displayName: Translation.tr("Hug"),     icon: "line_curve", value: 0 },
                         { displayName: Translation.tr("Float"),   icon: "view_day",   value: 1 },
                         { displayName: Translation.tr("Islands"), icon: "crop_3_2",   value: 2 },
                         { displayName: Translation.tr("M3"), icon: "interests",   value: 3 },
                         { displayName: Translation.tr("Float Islands"), icon: "view_week", value: 4 }
                     ]
+                }
+                ConfigSelectionArray {
+                    visible: FrameGeometry.enabled && Config.options.bar.cornerStyle !== 3
+                    text: Translation.tr("Bar state")
+                    icon: "web_asset"
+                    currentValue: Config.options.appearance.frame.bar ?? "auto"
+                    onSelected: newValue => { Config.options.appearance.frame.bar = newValue; }
+                    options: [
+                        { displayName: Translation.tr("Auto"),  icon: "auto_mode",   value: "auto" },
+                        { displayName: Translation.tr("Hug"),   icon: "line_curve",  value: "attached" },
+                        { displayName: Translation.tr("Float"), icon: "view_day",    value: "floating" }
+                    ]
+                    detailContent: StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("Auto hugs the frame while a window is open and floats over an empty workspace; pinning the bar (qs -c imi ipc call bar togglePin) holds Float. Islands follow the same state, each on its own. M3 always floats.")
+                    }
                 }
                 ConfigSelectionArray {
                     text: Translation.tr("Group style")

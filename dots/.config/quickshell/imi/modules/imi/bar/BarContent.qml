@@ -48,6 +48,10 @@ Item {
     // with the lift.
     property bool plateOnFrame: false
     property real plateRadius: 0
+    // The frame's Hug state for this bar (Bar.qml: FrameGeometry.barAttachedFor)
+    // - what the Islands style follows when the frame paints no plate for it:
+    // hugging, each island rises out of the band; floating, each is its own.
+    property bool frameHug: false
     readonly property Item centerPillItem: centerPill
     readonly property bool centerPillPainted: centerPill.visible
 
@@ -142,9 +146,14 @@ Item {
 
     // Optional soft drop shadow under the bar background (Config.options.bar.shadow).
     // Only rendered when the background itself is painted (mirrors barBackground's color condition).
+    // Never while the frame paints the plate: the shadow lives in THIS window,
+    // above the frame's surface, so it fell across the frame's plate and a
+    // fused popup below it - part of the seam the user saw. The frame's plate
+    // is the frame's material and carries no shadow of its own.
     Loader {
         active: Config.options.bar.shadow && !centerOnly && Config.options.bar.showBackground
             && Config.options.bar.cornerStyle !== 2 && !root.isMaterial && !root.isFloatIslands
+            && !root.plateOnFrame
         anchors.fill: barBackground
         sourceComponent: StyledRectangularShadow {
             anchors.fill: undefined // The loader's anchors act on this, and this should not have any anchor
@@ -228,19 +237,44 @@ Item {
         // the container's edge (hyprlandGapsOut off the screen) exactly as
         // Float's whole plate does.
         readonly property real islandPad: Appearance.spacing.space125
+        // In frame mode the islands follow the bar's Hug/Float state
+        // (frame-pin-grammar.md, the bar row): hugging, each island reaches
+        // up to the band's inner edge with its band-side corners square, the
+        // frame's colour and no border - a piece of the frame rising out of
+        // the band, like the Hug plate; floating, the island as it is. The
+        // reach is what lies between this container and the band: the
+        // plate's gap, the padding, less the band itself.
+        readonly property bool islandsHug: root.frameHug && root.isFloatIslands
+        readonly property real islandReach: Math.max(0, (root.floatPlate ? Appearance.sizes.hyprlandGapsOut : 0)
+            + root.barPadding - FrameGeometry.bandExtent(Config.options.bar.bottom ? "bottom" : "top"))
         component Island: Rectangle {
             required property bool populated
+            readonly property bool hugsTop: contentContainer.islandsHug && !Config.options.bar.bottom
+            readonly property bool hugsBottom: contentContainer.islandsHug && Config.options.bar.bottom
             visible: root.isFloatIslands && Config.options.bar.showBackground && !root.centerOnly && populated
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            color: Appearance.colors.colBarBackground
+            anchors.topMargin: hugsTop ? -contentContainer.islandReach : 0
+            anchors.bottomMargin: hugsBottom ? -contentContainer.islandReach : 0
+            color: contentContainer.islandsHug ? FrameGeometry.color : Appearance.colors.colBarBackground
             radius: Appearance.rounding.windowRounding
-            border.width: 1
+            topLeftRadius: hugsTop ? 0 : radius
+            topRightRadius: hugsTop ? 0 : radius
+            bottomLeftRadius: hugsBottom ? 0 : radius
+            bottomRightRadius: hugsBottom ? 0 : radius
+            border.width: contentContainer.islandsHug ? 0 : 1
             border.color: Appearance.colors.colLayer0Border
+            Behavior on anchors.topMargin { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
+            Behavior on anchors.bottomMargin { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
+            Behavior on topLeftRadius { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
+            Behavior on topRightRadius { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
+            Behavior on bottomLeftRadius { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
+            Behavior on bottomRightRadius { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
+            Behavior on color { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }
         }
         component IslandShadow: Loader {
             required property Item island
-            active: Config.options.bar.shadow && island.visible
+            active: Config.options.bar.shadow && island.visible && !contentContainer.islandsHug
             anchors.fill: island
             sourceComponent: StyledRectangularShadow {
                 anchors.fill: undefined
