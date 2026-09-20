@@ -54,8 +54,10 @@ Scope { // Scope
                 ];
                 if (root.showTypingTest)
                     list.push({ "icon": "speed", "name": Translation.tr("Typing test"), "component": typingTestPage });
-                if (root.showComponents)
+                if (root.showComponents) {
                     list.push({ "icon": "widgets", "name": Translation.tr("Components"), "component": componentsPage });
+                    list.push({ "icon": "water_drop", "name": Translation.tr("Frame join"), "component": frameJoinPage });
+                }
                 return list;
             }
             readonly property var tabButtonList: cheatsheetRoot.pages.map(page => ({ "icon": page.icon, "name": page.name }))
@@ -211,6 +213,15 @@ Scope { // Scope
                 Component {
                     id: componentsPage
                     CheatsheetComponents {}
+                }
+                // The frame join's silhouette, on every surface that will have
+                // to do it, at true size. Developer-mode only for the same
+                // reason the gallery is: it builds a live shader per pane and
+                // steps a solver while it is open, which is not a cost a tab
+                // nobody opened should carry.
+                Component {
+                    id: frameJoinPage
+                    CheatsheetFrameJoin {}
                 }
 
                 ColumnLayout { // Real content
