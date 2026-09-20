@@ -143,8 +143,13 @@ Scope {
             // progress: the intent flips at the claim and the progress
             // follows, so the gate's two branches are entered by different
             // events and there is no ordering to get wrong.
+            // A landing card is still "open" to its contents: they ride the
+            // card down onto the band and leave with the submerge. Gated on
+            // `exiting` alone the sections left at the first frame of the
+            // exit and an empty plate landed and sank (footage, the Discord
+            // card: a click-opened, released popup).
             readonly property bool opening: overlayWindow.current !== null
-                && !overlayWindow.exiting
+                && !(overlayWindow.exiting && !overlayWindow.landing)
             readonly property bool contentsIn: Appearance.animation.contentsArrived(
                 card.openProgress, overlayWindow.opening)
             // Armed by a FRESH open only, in takeOver's from-idle branch. A
