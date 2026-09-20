@@ -336,3 +336,14 @@ translucent against the band, it is the band.
 - **Notification room in the Islands style**: `roomOn` read the released bar's zone from the
   plate record only; in the Islands style there is none, so a floating island's lift went
   uncounted and a card sat under it. Any island record carries the same `zoneExtra`.
+- **The released border**: every plate the frame paints had lost the 1 px border its own
+  Rectangle drew - the pinned popup card, the floating bar plate and islands, the floating
+  dock - because the field paints a flat silhouette and the Rectangle stands down whenever the
+  field paints (paintsAtRest). The field now draws a stroke along the plate's free outline
+  (`strokeWidth`, `strokeColor` on the record, frame_join.frag): the coverage between the
+  outline and the outline moved the width inward, on the free side of the band only, so a
+  fused plate's outline stays the band's. The width follows the lift (0 fused, the standard
+  1 px released); a distance field covers a fractional width fractionally, so the border fades
+  in with the lift where a Rectangle's border would have popped at 1. Notifications carry
+  none - their card never had one. In the translucent layer the stroke's colour is made
+  solid like the fill's and takes the frame's alpha once, with the rest of the paint.

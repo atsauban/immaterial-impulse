@@ -565,6 +565,34 @@ class FrameModeContract(unittest.TestCase):
         for name in ("left", "center", "right"):
             self.assertIn(f"readonly property bool {name}IslandPainted: {name}Island.visible && !{name}Island.onFrame", content)
 
+    def test_a_released_plate_keeps_its_border(self):
+        # frame-pin-grammar.md §7, the released border: the field paints a
+        # stroke along the plate's free outline, its width following the lift
+        # (fractional widths cover fractionally - no pop at 1 px), nothing
+        # inside the band; every released surface the frame paints carries it
+        # on its record, in the colour its own Rectangle used to draw.
+        frag = (ROOT / "modules/common/shaders/frame_join.frag").read_text()
+        self.assertIn("float strokeWidth;\n    vec4 strokeColor;\n};", frag)
+        self.assertIn("if (abs(d) > 4.0 * px + strokeWidth) {", frag, "the stroke's rows are not the early-out's interior")
+        self.assertIn("if (strokeWidth > 0.0 && dot(p, bandNormal) <= bandOrigin) {", frag, "no stroke inside the band")
+        self.assertIn("fragColor = (fillColor * (alpha - ring) + strokeColor * ring) * qt_Opacity;", frag)
+        field = _strip((ROOT / "modules/common/widgets/FrameJoinField.qml").read_text())
+        self.assertIn("property real strokeWidth: 0", field)
+        self.assertIn('property color strokeColor: "transparent"', field)
+        join = _strip((ROOT / "modules/common/widgets/FrameJoin.qml").read_text())
+        self.assertIn("strokeWidth: root.strokeWidth", join)
+        frame = _strip((ROOT / "modules/imi/frame/Frame.qml").read_text())
+        self.assertIn("strokeWidth: joinField.j?.strokeWidth ?? 0", frame)
+        self.assertIn('strokeColor: joinField.j?.strokeColor ? paintLayer.solid(joinField.j.strokeColor) : "transparent"', frame)
+        overlay = _strip((ROOT / "modules/imi/bar/BarPopupOverlay.qml").read_text())
+        self.assertIn("strokeWidth: Appearance.borderWidth.standard * Math.min(1, cardJoin.lift / Math.max(1, cardJoin.travel)),", overlay)
+        bar = _strip((ROOT / "modules/imi/bar/Bar.qml").read_text())
+        self.assertIn("? Appearance.borderWidth.standard * Math.min(1, barJoin.lift / barJoin.travel) : 0", bar)
+        self.assertEqual(bar.count("strokeWidth: barRoot.plateStroke, strokeColor: Appearance.colors.colLayer0Border,"), 2, "the plate and the islands")
+        dock = _strip((ROOT / "modules/imi/dock/Dock.qml").read_text())
+        self.assertIn(": Appearance.borderWidth.standard * Math.min(1, dockJoin.lift / dockJoin.travel)", dock)
+        self.assertIn("strokeWidth: dockJoin.strokeWidth, strokeColor: dockJoin.strokeColor", dock)
+
     def test_the_family_gates_the_surface_on_the_option(self):
         fam = FAMILY.read_text()
         self.assertIn("PanelLoader { extraCondition: FrameGeometry.enabled; component: Frame {} }", fam, "the family agrees with the authority (the vertical bar is not framed)")

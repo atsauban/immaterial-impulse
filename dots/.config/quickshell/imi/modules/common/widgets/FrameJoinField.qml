@@ -40,6 +40,10 @@ ShaderEffect {
     property real bandEdge: 0
     // The fill, and whether the owner wants the field painted at all.
     property color color: "transparent"
+    // A stroke along the plate's free outline (frame_join.frag strokeWidth):
+    // the released card's border. In item pixels; 0 draws none.
+    property real strokeWidth: 0
+    property color strokeColor: "transparent"
     property bool painting: false
     // The solver's state (functions/fluid.js): the gap, what is left of the
     // bridge, and how far the band's surface is drawn toward the plate.

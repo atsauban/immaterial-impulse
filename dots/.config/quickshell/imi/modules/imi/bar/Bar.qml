@@ -273,6 +273,10 @@ Scope {
                 readonly property real plateSideInset: barJoin.active ? FrameGeometry.bandExtent("left") + barJoin.lift : 0
                 readonly property real plateRadius: barJoin.active && barJoin.travel > 0
                     ? Appearance.rounding.windowRounding * Math.min(1, barJoin.lift / barJoin.travel) : 0
+                // The released plate's border (the Float style's 1 px), drawn
+                // by the frame's field and fading in with the lift.
+                readonly property real plateStroke: barJoin.active && barJoin.travel > 0
+                    ? Appearance.borderWidth.standard * Math.min(1, barJoin.lift / barJoin.travel) : 0
                 readonly property real releaseZoneExtra: barJoin.active
                     ? DockGeometry.splitZoneExtra(barJoin.travel + Math.max(0, barRoot.bandInsetHere), !barRoot.joinAttached, barJoin.lift) : 0
                 // How far a plate reaches past the band's inner edge, and
@@ -327,6 +331,8 @@ Scope {
                         gap: barJoin.state.gap, neck: barJoin.state.neck * slideHold, bulge: barJoin.state.bulge * slideHold,
                         meniscus: barJoin.meniscus, blendPerPixel: barJoin.blendPerPixel,
                         climbFraction: barJoin.climbFraction, color: FrameGeometry.color,
+                        // The floating plate's border, fading in with the lift.
+                        strokeWidth: barRoot.plateStroke, strokeColor: Appearance.colors.colLayer0Border,
                         // What the bar reserves beyond its settled zone while
                         // released, for whoever keeps clear of the bar's edge.
                         zoneExtra: barRoot.releaseZoneExtra
@@ -378,6 +384,7 @@ Scope {
                             gap: barJoin.state.gap, neck: barJoin.state.neck * slideHold, bulge: barJoin.state.bulge * slideHold,
                             meniscus: barJoin.meniscus, blendPerPixel: barJoin.blendPerPixel,
                             climbFraction: barJoin.climbFraction, color: FrameGeometry.color,
+                            strokeWidth: barRoot.plateStroke, strokeColor: Appearance.colors.colLayer0Border,
                             zoneExtra: barRoot.releaseZoneExtra
                         };
                     }

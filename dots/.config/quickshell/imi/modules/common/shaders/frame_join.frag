@@ -67,6 +67,14 @@ layout(std140, binding = 0) uniform buf {
     // floating it painted the gap between hairline and plate solid, the
     // width of the box.
     float bandPaint;
+    // A stroke along the plate's free outline, in item pixels, and its
+    // colour: the released card's 1 px border, which the plate's own
+    // Rectangle drew before the field painted it (frame-pin-grammar.md §7,
+    // the released border). Fractional widths cover fractionally, so a
+    // width that follows the lift fades the border in rather than popping
+    // it at 1. Nothing inside the band: the outline there is the band's.
+    float strokeWidth;
+    vec4 strokeColor;
 };
 
 // A rounded box with a radius per corner: x top-left, y top-right,
@@ -161,7 +169,7 @@ void main()
     // pixels on the edge pay for the four extra field evaluations - the
     // interior is most of the box, and on a software rasteriser the
     // per-pixel cost is the whole frame.
-    if (abs(d) > 4.0 * px) {
+    if (abs(d) > 4.0 * px + strokeWidth) {
         fragColor = d < 0.0 ? fillColor * qt_Opacity : vec4(0.0);
         return;
     }
@@ -188,5 +196,12 @@ void main()
     float g = clamp((abs(gx) + abs(gy)) / (2.0 * h), 0.5, 1.5);
     float w = g * px;
     float alpha = 1.0 - smoothstep(-w, w, d);
-    fragColor = fillColor * alpha * qt_Opacity;
+    // The stroke: the coverage between the outline and the outline moved
+    // strokeWidth inward, on the free side of the band only.
+    float ring = 0.0;
+    if (strokeWidth > 0.0 && dot(p, bandNormal) <= bandOrigin) {
+        float inner = 1.0 - smoothstep(-w, w, d + strokeWidth);
+        ring = max(0.0, alpha - inner);
+    }
+    fragColor = (fillColor * (alpha - ring) + strokeColor * ring) * qt_Opacity;
 }

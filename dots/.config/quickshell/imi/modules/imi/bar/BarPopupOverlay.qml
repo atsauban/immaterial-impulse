@@ -844,7 +844,10 @@ Scope {
                     neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck * grown,
                     bulge: overlayWindow.cardOverhangs ? 0 : cardJoin.state.bulge * grown,
                     meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
-                    climbFraction: cardJoin.climbFraction, color: overlayWindow.platePaint
+                    climbFraction: cardJoin.climbFraction, color: overlayWindow.platePaint,
+                    // The released card's border, fading in with the lift.
+                    strokeWidth: Appearance.borderWidth.standard * Math.min(1, cardJoin.lift / Math.max(1, cardJoin.travel)),
+                    strokeColor: Appearance.colors.colLayer0Border
                 };
             }
             function publishFrameJoin(record) {

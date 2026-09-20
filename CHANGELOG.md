@@ -19,6 +19,8 @@ own repo; the installer pins which revision it builds.
 - Frame mode, Islands style: an island the frame paints no longer blurs its backdrop twice
   (its body read a shade lighter than its corners), and notification cards keep clear of a
   floating island's lift like they do the plate's.
+- Frame mode: a released surface keeps its 1 px border - the pinned popup card, the floating
+  bar plate and islands, the floating dock - fading in as it lifts off the frame's band.
 
 ## [1.3.0] — 2026-09-21
 

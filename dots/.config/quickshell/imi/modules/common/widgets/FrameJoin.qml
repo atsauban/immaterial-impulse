@@ -95,6 +95,12 @@ Item {
     // cut, every time). With one painter in both states there is no frame to
     // get wrong.
     property bool paintsAtRest: false
+    // The released plate's border, drawn by the field along the plate's free
+    // outline (FrameJoinField.strokeWidth); the consumer scales the width
+    // with its lift. Only where the field is drawn here (paintsLocally);
+    // a remote painter reads them off the consumer's record.
+    property real strokeWidth: 0
+    property color strokeColor: "transparent"
 
     // --- what the consumer reads --------------------------------------------
 
@@ -200,6 +206,8 @@ Item {
         radiusBottomLeft: root.plate.bottomLeftRadius
         bandEdge: root.bandEdge
         color: root.color
+        strokeWidth: root.strokeWidth
+        strokeColor: root.strokeColor
         gap: root.state.gap
         neck: root.state.neck
         bulgeRaw: root.state.bulge

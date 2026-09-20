@@ -355,6 +355,9 @@ Scope {
                             // itself there as it always did.
                             paintsLocally: dockRoot.fullscreenOnThisMonitor
                             paintsAtRest: true
+                            strokeWidth: !Config.options.dock.showBackground || dockJoin.travel <= 0 ? 0
+                                : Appearance.borderWidth.standard * Math.min(1, dockJoin.lift / dockJoin.travel)
+                            strokeColor: Appearance.colors.colLayer0Border
                         }
 
                         // What the frame's surface draws: the plate in SCREEN
@@ -385,7 +388,9 @@ Scope {
                                 meniscus: dockJoin.meniscus, blendPerPixel: dockJoin.blendPerPixel,
                                 // The plate's OWN colour, which is the animated one: the
                                 // tab-to-pill look change rides its Behavior.
-                                climbFraction: dockJoin.climbFraction, color: p.color
+                                climbFraction: dockJoin.climbFraction, color: p.color,
+                                // The floating pill's border, fading in with the lift.
+                                strokeWidth: dockJoin.strokeWidth, strokeColor: dockJoin.strokeColor
                             };
                         }
                         function publishFrameJoin(record) {

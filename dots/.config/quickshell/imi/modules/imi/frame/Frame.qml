@@ -326,6 +326,8 @@ Scope {
                             radiusBottomLeft: joinField.j?.radii.bottomLeft ?? 0
                             bandEdge: surface.joinBandEdgeFor(painter.key, joinField.edge)
                             color: joinField.j ? paintLayer.solid(joinField.j.color) : "transparent"
+                            strokeWidth: joinField.j?.strokeWidth ?? 0
+                            strokeColor: joinField.j?.strokeColor ? paintLayer.solid(joinField.j.strokeColor) : "transparent"
                             gap: joinField.j?.gap ?? 0
                             neck: joinField.j?.neck ?? 0
                             bulgeRaw: joinField.j?.bulge ?? 0
