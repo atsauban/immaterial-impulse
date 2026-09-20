@@ -238,6 +238,13 @@ translucent against the band, it is the band.
   carries the same guard. A `.qsb` is cached by URL for the life of the process: a hot reload
   kept the old shader and the sandbox "failed" until its shell was restarted - a shader edit
   needs `qs` restarted, live included.
+- **A fused card sits on the flat of its plate.** Clamped to the screen, a card at the bar's end
+  ran past a floating plate's rounded corner and its fillet there climbed onto nothing (seen
+  live, the right end of the bar). The card's place along the bar is clamped to the stretch of
+  its plate's inner edge between the corner radii (`BarPopupOverlay.joinSpan`, taken up with
+  `barInner` from the event loop, never bound - the overlay publishes into the map it reads); a
+  card wider than that stretch (an island narrower than its card) is centred on it and carries no
+  neck. The card is placed again when the plate moves or its state turns.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
