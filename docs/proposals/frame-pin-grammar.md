@@ -281,6 +281,10 @@ translucent against the band, it is the band.
   Behaviors take over only for the submerge (`card.followsContent`). After: every channel
   decelerates together through the landing (dx 4→0, dw -8→0, dh -10→-2), then the tier's
   collapse. What remains is the tier's own start - the submerge accelerates from rest.
+- **The contents ride the landing** (footage, the Discord card - click-opened, released): the
+  sections' gate (`opening`) was `!exiting`, so at the first frame of a released card's exit the
+  contents left and an empty plate landed and sank. A landing card is still open to its
+  contents; they leave with the submerge.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
