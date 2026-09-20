@@ -84,6 +84,27 @@ function scaleVelocity(base, multiplier, reduceMotion) {
     return Math.max(1, Math.round(Number(base) / clampMultiplier(multiplier)));
 }
 
+// A SOLVER has no duration to scale. Its motion is an integration - the frame
+// join's split (functions/fluid.js) runs forces at so many pixels per second
+// per second - so there is no literal for `scaleDuration` to multiply, and
+// the slider silently did nothing to it: exactly the failure this file's
+// header calls out in the surveyed fork, arrived at from the other direction.
+//
+// The equivalent is its CLOCK. A shell asked to run slower advances the
+// physics by less of a second per frame, which stretches the whole motion -
+// the hold, the cut and the settle together - without touching a constant
+// that is part of the chosen model.
+//
+// Reduce motion returns 0, the same answer the duration scale gives. The
+// caller reads that as "do not integrate": put the state at its target and
+// stop, rather than walking thousands of sub-steps to land near it.
+function scaleStep(seconds, multiplier, reduceMotion) {
+    if (reduceMotion) return 0;
+    var s = Number(seconds);
+    if (!isFinite(s) || s <= 0) return 0;
+    return s / clampMultiplier(multiplier);
+}
+
 // ---------------------------------------------------------------------------
 // Stagger
 // ---------------------------------------------------------------------------

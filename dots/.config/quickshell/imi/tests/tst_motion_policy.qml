@@ -233,4 +233,24 @@ TestCase {
         compare(Motion.convergeSettle(NaN), 0);
         compare(Motion.convergeSettle(undefined), 0);
     }
+
+    function test_a_solver_is_scaled_by_its_clock_not_its_duration() {
+        // A solver has no duration: the multiplier stretches the seconds it
+        // integrates per frame instead, in the same direction a duration goes
+        // (a bigger multiplier is a slower shell, so a smaller step).
+        const dt = 1 / 60;
+        fuzzyCompare(Motion.scaleStep(dt, 1.0, false), dt, 1e-9);
+        fuzzyCompare(Motion.scaleStep(dt, 2.0, false), dt / 2, 1e-9);
+        fuzzyCompare(Motion.scaleStep(dt, 0.5, false), dt / 0.5, 1e-9);
+        // Out of range clamps the same way every other consumer sees it.
+        fuzzyCompare(Motion.scaleStep(dt, 99, false),
+                     dt / Motion.MULTIPLIER_MAX, 1e-9);
+        // Reduce motion is not a very small step: it is no step at all, which
+        // the caller reads as "put it at the target".
+        compare(Motion.scaleStep(dt, 1.0, true), 0);
+        compare(Motion.scaleStep(dt, 2.5, true), 0);
+        // Nonsense in, no motion out - never NaN into a physics state.
+        compare(Motion.scaleStep(NaN, 1.0, false), 0);
+        compare(Motion.scaleStep(-1, 1.0, false), 0);
+    }
 }

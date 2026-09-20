@@ -536,6 +536,12 @@ Singleton {
         function scaleVelocity(base: int): int {
             return MotionPolicy.scaleVelocity(base, motion.multiplier, motion.reduceMotion);
         }
+        // For a solver rather than a curve: the seconds to advance its physics
+        // by this frame. 0 means do not advance it at all - reduce motion -
+        // and the caller puts its state at the target instead.
+        function scaleStep(seconds: real): real {
+            return MotionPolicy.scaleStep(seconds, motion.multiplier, motion.reduceMotion);
+        }
         // One spelling of "these N things arrive in sequence". A cascade asks
         // for a step as a fraction of a catalogued duration, ranks its members
         // by VISIBLE position, and gets a clamped delay back - see
