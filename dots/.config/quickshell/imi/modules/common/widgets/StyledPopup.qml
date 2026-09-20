@@ -107,8 +107,16 @@ QtObject {
     // the referee for a global resource shared by ten of its own instances,
     // three of them in bundled plugins.
     function claimSlot() {
-        GlobalStates.claimBarPopup(root);
+        if (GlobalStates.claimBarPopup(root)) root.held = true;
     }
+    // Whether the overlay still hosts this popup's content: from the claim
+    // until the overlay releases it after the card's exit. A popup that lives
+    // in a Loader has to stay loaded that long - unloaded at the click that
+    // closed it, its content was destroyed at the first frame of the exit and
+    // an empty plate landed and sank (frame-pin-grammar.md §7, the Docker and
+    // Discord cards). The plugins bind their Loader's `active` to this.
+    property bool held: false
+    onAboutToRelease: root.held = false
 
     // Asked by the arbiter when another popup takes the card: drop the hover
     // grace if that is all that is keeping this one up. The CONDITION stays

@@ -176,17 +176,17 @@ RippleButton {
 
     Loader {
         id: popupLoader
-        active: root.popupOpen
+        // Loaded while open, and until the overlay has released the card's
+        // content after the exit (StyledPopup.held): unloaded at the click
+        // that closed it, the content was destroyed under the leaving card.
+        active: root.popupOpen || (popupLoader.item?.held ?? false)
         sourceComponent: DockerPackage.DockerPopup {
-            pinnedOpen: true
+            pinnedOpen: root.popupOpen
             // StyledPopup uses its target for screen-relative positioning;
             // a RippleButton exposes no containsMouse, so this is click-only.
             hoverTarget: root
             // The overlay owns the surface, so it owns the outside-click grab.
             onDismissRequested: root.popupOpen = false
-            onPinnedOpenChanged: {
-                if (!pinnedOpen) root.popupOpen = false;
-            }
         }
     }
 

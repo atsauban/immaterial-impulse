@@ -498,6 +498,14 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn('const out = { "barIsland:left": null, "barIsland:center": null, "barIsland:right": null };', barWindow)
         self.assertIn("&& (FrameGeometry.barCovers || FrameGeometry.barIslands)", barWindow, "the plate or the islands: the same join")
         self.assertIn("section: overlayWindow.islandSection,", overlay)
+        # A click-only popup stays loaded until the overlay has released its
+        # content after the exit; unloaded at the click that closed it, the
+        # content was destroyed under the leaving card.
+        self.assertIn("if (GlobalStates.claimBarPopup(root)) root.held = true;", _strip((ROOT / "modules/common/widgets/StyledPopup.qml").read_text()))
+        for plugin in ("modules/imi/bar/DiscordVoicePlugin.qml", "modules/imi/bar/DockerPlugin.qml", "modules/common/plugins/bundled/docker/DockerWidget.qml"):
+            src = _strip((ROOT / plugin).read_text())
+            self.assertIn("active: root.popupOpen || (popupLoader.item?.held ?? false)", src, plugin)
+            self.assertNotIn("pinnedOpen: true", src, plugin + ": the popup asks to close; the plugin keeps it loaded")
         # A fused card sits on the flat stretch of its plate, between the
         # corner radii, and carries no neck where it overhangs a narrower
         # island (the span is taken up with barInner, never bound).
