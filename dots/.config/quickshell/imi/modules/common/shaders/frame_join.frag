@@ -49,6 +49,15 @@ layout(std140, binding = 0) uniform buf {
     float reach;
     float bulge;
     float bulgeHalf;
+    // How far above the band's surface the blend still acts, in item pixels.
+    // 0 leaves it ISOTROPIC: one radius in every direction, whose fillet then
+    // climbs the body's corner about 1.6x as far as it spreads along the band
+    // (measured on the dock: climb 0.78 of the corner radius against a spread
+    // of 0.48, where the study that chose this motion has 0.43 against 0.50).
+    // A positive value fades the radius out with height instead, so the spread
+    // along the band keeps the full radius and the climb is capped - the two
+    // stop being one number.
+    float climbFall;
 };
 
 // A rounded box with a radius per corner: x top-left, y top-right,
@@ -79,7 +88,15 @@ float blendAt(vec2 p)
 {
     float along = dot(p, abs(vec2(bandNormal.y, bandNormal.x)));
     float u = waistHalf > 0.0 ? (along - waistCenter) / waistHalf : 2.0;
-    return blend * max(0.0, 1.0 - u * u);
+    float k = blend * max(0.0, 1.0 - u * u);
+    if (climbFall <= 0.0)
+        return k;
+    // How far this point is out from the band's surface, toward the body.
+    float above = max(0.0, bandOrigin - dot(p, bandNormal));
+    float fall = max(0.0, 1.0 - above / climbFall);
+    // Squared, for the same reason the hump is: a linear fade meets the full
+    // radius at a crease, and the crease reads as a facet on the flank.
+    return k * fall * fall;
 }
 
 // How far the band's own surface is drawn toward the body leaving it, at a

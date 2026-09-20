@@ -1,5 +1,4 @@
 import qs.modules.common
-import qs.services
 import QtQuick
 import QtQuick.Window
 import "../functions/fluid.js" as Fluid
@@ -29,8 +28,14 @@ import "../functions/fluid.js" as Fluid
  *     // ...and the plate reads back:
  *     //   join.lift        px away from the band
  *     //   join.press       px across it: negative squashed, positive stretched
- *     //   join.cornerRound 0 square where it is joined, 1 round once free
  *     //   join.fused       whether anything still bridges the two
+ *     //   join.drawsPlate  the field is painting the plate; the plate's own
+ *     //                    Rectangle stands down
+ *
+ * The field itself is FrameJoinField, and it need not be drawn HERE: with
+ * `paintsLocally` off the join keeps the physics and the consumer publishes
+ * what the field needs to whichever surface should paint it - the frame's,
+ * so the plate and the band are one outline (frame-one-surface.md, stage 2).
  */
 Item {
     id: root
@@ -50,19 +55,51 @@ Item {
     // element's rest outward margin, usually: the band is where the plate sits
     // when it is attached.
     property real bandInset: 0
-    // The frame's colour, and whether this join is live at all.
-    property color color: FrameGeometry.color
+    // What the join is DRAWN IN, and whether it is live at all. The colour
+    // is the caller's: a shared widget that reached into a service for it
+    // could only ever draw the frame's own surfaces, and the bench and the
+    // cheatsheet page both need it in a colour that can be read against their
+    // own ground (tests/lint_dumb_widgets.py).
+    required property color color
     property bool active: true
     // The flare the plate keeps where it rests, and how much blend a pixel of
-    // gap needs to stay bridged.
-    property real meniscus: 14
-    property real blendPerPixel: 4
+    // gap needs to stay bridged - both scaled by the SLANT, which is how far
+    // the surfaces lean out into the join. 1 is the study's 100%; the chosen
+    // model is 110%.
+    //
+    // The meniscus is a smooth-minimum RADIUS, not the flare it draws: the
+    // field's own fillet comes out a fraction of it, so 14 drew a two-pixel
+    // lip where the study has a fifth of the plate's thickness (measured off
+    // the live dock: 2 px of flare on a 60 px pill against the study's 8.2 on
+    // 40). 45 measures 12 rows of climb and 15 px of spread, which is the
+    // study's rest silhouette.
+    property real meniscus: 45 * root.slant
+    property real blendPerPixel: 4 * root.slant
+    property real slant: 1.1
+    // How far up the body the meniscus may climb, as a fraction of the blend
+    // radius. 0 is the field's own answer - one radius in every direction,
+    // which climbs about 1.6x as far as it spreads. Anything else caps the
+    // climb without touching the spread, because the two are otherwise the
+    // same number and the study this motion was chosen from has them the
+    // other way round (climb 0.43 of the corner, spread 0.50).
+    property real climbFraction: 0
+    // Whether the field is drawn on THIS item. Off, the join is physics only
+    // and `painting` says when a remote painter should be drawing the plate.
+    property bool paintsLocally: true
+    // Whether the field paints the plate at REST as well - free and settled,
+    // no neck - rather than only while something bridges the two. Where the
+    // painter is another surface this is what removes the hand-over: the plate
+    // going from that surface's field to this element's own Rectangle crosses
+    // two render loops nothing orders, and the frame between them showed the
+    // icons over bare backdrop (measured at 60 fps: one blank frame at the
+    // cut, every time). With one painter in both states there is no frame to
+    // get wrong.
+    property bool paintsAtRest: false
 
     // --- what the consumer reads --------------------------------------------
 
     readonly property real lift: root.state.gap
     readonly property real press: root.state.shape
-    readonly property real cornerRound: root.active ? Fluid.cornerRound(root.state) : 1
     readonly property bool fused: root.state.neck > 0
     // True while anything is still moving, for a consumer that wants to hold
     // something steady until it stops (a blur region, a reservation).
@@ -74,7 +111,12 @@ Item {
     property var state: Fluid.rest(0)
 
     onTargetChanged: {
-        if (!root.active) {
+        // Asked for no motion, there is none: the join is wherever it was
+        // asked to be, this frame. The shell's motion policy collapses every
+        // catalogued duration to zero for reduce motion, and a physics solver
+        // that kept integrating through it would be the one thing still
+        // moving.
+        if (!root.active || Appearance.animation.scaleStep(1) <= 0) {
             root.state = Fluid.rest(root.target);
             return;
         }
@@ -93,7 +135,16 @@ Item {
         // itself the frame it settles.
         running: false
         onTriggered: {
-            root.state = Fluid.step(root.state, root.target, frameTime);
+            // The speed slider reaches the solver as its CLOCK: a slower shell
+            // advances the physics by less of a second per frame, so the hold,
+            // the cut and the settle all stretch together.
+            const h = Appearance.animation.scaleStep(frameTime);
+            if (h <= 0) {
+                root.state = Fluid.rest(root.target);
+                stepper.running = false;
+                return;
+            }
+            root.state = Fluid.step(root.state, root.target, h);
             if (root.state.settled)
                 stepper.running = false;
         }
@@ -117,83 +168,36 @@ Item {
     }
     readonly property real plateAlong: root.vertical ? root.plate.height : root.plate.width
 
-    ShaderEffect {
+    // Painted while anything still bridges the two, and while the band is
+    // still ringing back from having been pulled out of shape. This is the
+    // one answer for the local field and for a remote one: the plate stands
+    // down on it either way.
+    readonly property bool painting: root.active && neck.fieldAvailable && root.plate.visible
+        && (root.paintsAtRest || root.fused || neck.bulge > 0.1)
+
+    FrameJoinField {
         id: neck
-        // Only where a shader can draw: the software scene graph draws no
-        // ShaderEffect, and one that failed to load draws nothing. There the
-        // plate keeps its own Rectangle and the join has no neck.
-        readonly property bool fieldAvailable: neck.GraphicsInfo.api !== GraphicsInfo.Software
-            && neck.status !== ShaderEffect.Error
-        // Painted while anything still bridges the two, and while the band is
-        // still ringing back from having been pulled out of shape.
-        readonly property bool painting: root.active && neck.fieldAvailable && root.plate.visible
-            && (root.fused || neck.bulge > 0.1)
-        visible: painting
-
-        // The box: the plate, the room between it and the band, a couple of
-        // pixels INSIDE the band so the coverage ramp has somewhere to land,
-        // and the meniscus' reach past the plate's ends along the band - a box
-        // the plate's own length draws the flare where nothing is rasterised.
-        readonly property real pad: root.meniscus + 2
-        // Room for the band's hump as well as the plate: the bulge rises out
-        // of the band toward the plate, and a box that stopped at the band's
-        // edge would clip it.
-        readonly property real into: 2
-        readonly property rect box: {
-            const p = root.plate;
-            const e = root.edge;
-            if (e === "bottom") {
-                const bottom = Math.max(p.y + p.height, root.bandEdge + into);
-                return Qt.rect(p.x - pad, p.y, p.width + pad * 2, bottom - p.y);
-            }
-            if (e === "top") {
-                const top = Math.min(p.y, root.bandEdge - into);
-                return Qt.rect(p.x - pad, top, p.width + pad * 2, p.y + p.height - top);
-            }
-            if (e === "left") {
-                const left = Math.min(p.x, root.bandEdge - into);
-                return Qt.rect(left, p.y - pad, p.x + p.width - left, p.height + pad * 2);
-            }
-            const right = Math.max(p.x + p.width, root.bandEdge + into);
-            return Qt.rect(p.x, p.y - pad, right - p.x, p.height + pad * 2);
-        }
-        x: box.x
-        y: box.y
-        width: box.width
-        height: box.height
-
-        // The field's inputs, in the box's own pixels.
-        readonly property vector2d resolution: Qt.vector2d(width, height)
-        readonly property color fillColor: root.color
-        readonly property vector2d pillCenter: Qt.vector2d(
-            root.plate.x - neck.x + root.plate.width / 2,
-            root.plate.y - neck.y + root.plate.height / 2)
-        readonly property vector2d pillSize: Qt.vector2d(root.plate.width, root.plate.height)
-        readonly property vector4d pillRadii: Qt.vector4d(
-            root.plate.topLeftRadius, root.plate.topRightRadius,
-            root.plate.bottomRightRadius, root.plate.bottomLeftRadius)
-        readonly property vector2d bandNormal: Qt.vector2d(root.bandNormal.x, root.bandNormal.y)
-        readonly property real bandOrigin: (root.vertical ? root.bandEdge - neck.x : root.bandEdge - neck.y)
-            * (root.bandNormal.x + root.bandNormal.y)
-        readonly property real blend: Fluid.blend(root.state, root.meniscus, root.blendPerPixel)
-        readonly property real waistHalf: Fluid.waist(root.state, root.plateAlong) / 2
-        readonly property real waistCenter: root.vertical ? neck.pillCenter.y : neck.pillCenter.x
-        // How far the band's own surface is drawn toward the plate, and how
-        // wide that hump is along the band. The band's half of the split: it
-        // rises with the furrow and rings flat once the bridge lets go.
-        readonly property real bulge: Math.max(0, root.state.bulge)
-        readonly property real bulgeHalf: root.plateAlong * 0.4
-        readonly property real softness: 0.75
-        // How far the plate's field reaches into the band: the first pixels of
-        // a lift, before the blend can bridge them.
-        readonly property real reach: Math.max(0, 2 - root.lift)
-        // The WINDOW's ratio, which follows fractional scaling; the screen's is
-        // the output's integer scale.
-        readonly property real pixelRatio: Window.window?.devicePixelRatio ?? 1
-        fragmentShader: Qt.resolvedUrl("../shaders/frame_join.frag.qsb")
+        edge: root.edge
+        plateX: root.plate.x
+        plateY: root.plate.y
+        plateWidth: root.plate.width
+        plateHeight: root.plate.height
+        radiusTopLeft: root.plate.topLeftRadius
+        radiusTopRight: root.plate.topRightRadius
+        radiusBottomRight: root.plate.bottomRightRadius
+        radiusBottomLeft: root.plate.bottomLeftRadius
+        bandEdge: root.bandEdge
+        color: root.color
+        gap: root.state.gap
+        neck: root.state.neck
+        bulgeRaw: root.state.bulge
+        meniscus: root.meniscus
+        blendPerPixel: root.blendPerPixel
+        climbFraction: root.climbFraction
+        painting: root.paintsLocally && root.painting
     }
 
     // The plate hands over while the field paints it, so the two never draw
     // the same edge twice.
-    readonly property bool drawsPlate: neck.painting
+    readonly property bool drawsPlate: root.painting
 }
