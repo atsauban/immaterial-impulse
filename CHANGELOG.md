@@ -11,6 +11,8 @@ own repo; the installer pins which revision it builds.
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-09-21
+
 ### Added
 - Frame mode, stage 4 - the pin grammar (docs/proposals/frame-pin-grammar.md): what
   sits against the frame is either fused to it (one outline, one blur, transient) or
@@ -4024,7 +4026,8 @@ illogical-impulse), collecting the work done to date:
   (`Super`+`/`).
 - This changelog and versioning.
 
-[Unreleased]: https://github.com/XephyLon/immaterial-impulse/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/XephyLon/immaterial-impulse/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/XephyLon/immaterial-impulse/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/XephyLon/immaterial-impulse/compare/v1.1.0...v1.2.0
 [0.32.0]: https://github.com/XephyLon/immaterial-impulse/compare/v0.31.2...v0.32.0
 [0.31.2]: https://github.com/XephyLon/immaterial-impulse/compare/v0.31.1...v0.31.2
