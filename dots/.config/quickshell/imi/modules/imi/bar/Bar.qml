@@ -494,6 +494,14 @@ Scope {
                         }
                         height: Appearance.rounding.screenRounding
                         active: showBarBackground && Config.options.bar.cornerStyle === 0 && !barContent.centerOnly// Hug
+                        // The hug is the FUSED look: these fillets bridge the
+                        // plate into the screen's sides. They ride the content
+                        // down with the lift and would sit in the island's gap
+                        // at the screen edge (seen live), so they fade with the
+                        // lift and are gone by the time the plate is free.
+                        opacity: barJoin.active && barJoin.travel > 0
+                            ? 1 - Math.min(1, barJoin.lift / barJoin.travel) : 1
+                        visible: opacity > 0
 
                         states: State {
                             name: "bottom"
