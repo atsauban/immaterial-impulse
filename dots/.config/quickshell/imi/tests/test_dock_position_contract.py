@@ -280,6 +280,32 @@ class DockPositionContractTest(unittest.TestCase):
                 re.search(r"flow: root\.(vertical|dockVertical) \? Flow\.TopToBottom", source),
                 f"{path.name}'s running dots cannot stack beside the icon")
 
+    def test_the_strip_breathes_on_the_fluids_spring(self):
+        # An icon arriving or leaving, the media tile coming or going, a
+        # separator with it: the strip takes the new length on the drop's own
+        # spring (fluid.js `spring`, FluidValue), not on a tween - and a
+        # separator toggled with `visible` snapped its hairline and spacing
+        # out in one frame while the slot beside it eased. Captured at 60 fps
+        # on the user's session: the icons re-centred while the plate did
+        # not follow, which is what a slot on a different clock looks like.
+        dock = DOCK.read_text()
+        self.assertIn("FluidValue {\n                                    id: alongSize", dock)
+        self.assertIn("target: root.vertical ? activeRow.implicitHeight : activeRow.implicitWidth", dock)
+        self.assertIn("clip: alongSize.moving", dock)
+        self.assertNotIn("Behavior on implicitWidth", dock)
+        self.assertNotIn("Behavior on implicitHeight", dock)
+        for block in re.findall(r"DockSeparator \{(.*?)\n\s{28}\}", dock, re.S):
+            self.assertNotIn("visible:", block, "a separator is shown, never made visible")
+            self.assertIn("shown:", block)
+        separator = SEPARATOR.read_text()
+        self.assertIn("property bool shown: true", separator)
+        self.assertIn("target: root.shown ? 1 : 0", separator)
+        self.assertIn("visible: root.open > 0.001", separator)
+        value = (WIDGETS / "FluidValue.qml").read_text()
+        self.assertIn("Fluid.spring(root.state, root.target, h)", value)
+        self.assertIn("Appearance.animation.scaleStep(frameTime)", value)
+        self.assertIn("running: false", value)
+
     def test_the_hover_lift_is_a_magnitude_and_a_direction(self):
         source = ICON_MOTION.read_text(encoding="utf-8")
         self.assertIn("DockGeometry.inwardVector(", source)

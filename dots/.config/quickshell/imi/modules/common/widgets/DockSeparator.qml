@@ -20,6 +20,20 @@ Rectangle {
         Appearance.sizes.elevationMargin + dockRow.padding + Appearance.rounding.normal - 4,
         Appearance.sizes.hyprlandGapsOut + dockRow.padding + Appearance.rounding.normal)
 
+    // Whether the separator belongs in the row. Not `visible`: a separator
+    // that vanishes takes its hairline and the layout's spacing around it
+    // out of the strip in one frame while the slot beside it is still
+    // opening on the fluid's spring. Its own width rides the same spring
+    // (FluidValue) and it fades with it, staying in the layout until it has
+    // no width left.
+    property bool shown: true
+    readonly property real open: room.value
+    FluidValue {
+        id: room
+        target: root.shown ? 1 : 0
+    }
+    visible: root.open > 0.001
+    opacity: root.open
     Layout.topMargin: root.dockMargins.top
     Layout.bottomMargin: root.dockMargins.bottom
     Layout.leftMargin: root.dockMargins.left
@@ -28,8 +42,8 @@ Rectangle {
     // A hairline across the strip, filling the dock's depth.
     Layout.fillHeight: !root.dockVertical
     Layout.fillWidth: root.dockVertical
-    implicitWidth: root.dockVertical ? 0 : 1
-    implicitHeight: root.dockVertical ? 1 : 0
+    implicitWidth: root.dockVertical ? 0 : root.open
+    implicitHeight: root.dockVertical ? root.open : 0
 
     color: Appearance.colors.colOutlineVariant
 }
