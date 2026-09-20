@@ -37,18 +37,29 @@ Singleton {
     readonly property bool barCovers: (Config.options.bar.cornerStyle ?? 0) === 0
         && (Config.options.bar.showBackground ?? true)
     readonly property real gap: Appearance.sizes.hyprlandGapsOut
-    // Whether the FRAME's surface paints the bar's plate (frame-one-surface.md,
-    // stage 3): only where the bar is the frame's edge - a covering plate -
-    // because there the plate is a full-width strip, which is a band. The bar
-    // publishes its plate's thickness and its auto-hide slide (`frameBars`,
-    // on the shell's ephemeral state; the authority itself reads none of it -
-    // an occupant read through it was inert for a whole review round), and
-    // Frame.qml draws that band from it, while
-    // BarContent paints no plate of its own, so the strip and the side bands
-    // meeting at the top corners are one shape on one surface rather than two
+    // Whether the FRAME's surface paints the bar's plate (frame-one-surface.md
+    // stage 3, frame-pin-grammar.md the bar row): only where the bar is the
+    // frame's edge - a covering plate - because there the plate is a
+    // full-width strip on the band. The bar publishes it as a join record
+    // (the shell's ephemeral join map, under "bar"; the authority itself reads
+    // none of it - an occupant read through it was inert for a whole review
+    // round), and Frame.qml paints it fused to the hairline or
+    // lifted off it, while BarContent paints no plate of its own, so the
+    // plate and the side bands are one shape on one surface rather than two
     // surfaces crossing. Every other style keeps its own plates: they are
     // inset islands inside the frame, not the frame.
     readonly property bool paintsBarPlate: root.enabled && root.barCovers
+    // How the bar meets its band (frame-pin-grammar.md, the bar row): "auto"
+    // follows the workspace and the pin - fused while the workspace is empty
+    // and nothing pins it, released (a gap off the band, an island) once a
+    // window is there or the bar is pinned - "attached" and "floating" force
+    // one look. The pin and the occupancy are the bar's facts, handed in.
+    readonly property string barLook: String(Config.options.appearance.frame.bar ?? "auto")
+    function barAttachedFor(pinned: bool, occupied: bool): bool {
+        if (root.barLook === "floating") return false;
+        if (root.barLook === "attached") return true;
+        return !pinned && !occupied;
+    }
     readonly property real thickness: Geo.bandThickness(Config.options.appearance.frame.thickness)
     // How the dock meets the band on its edge, given its pin
     // (frame-pin-grammar.md: pinned means released, unpinned means fused).
@@ -80,9 +91,8 @@ Singleton {
     function bandMargins(edge) {
         return Geo.bandMargins(edge, root.barEdge, root.thickness, root.gap, root.barCovers);
     }
-    // The band's thickness on its own edge: nothing on a covering bar's edge
-    // (the bar's plate is the border there), the configured thickness
-    // everywhere else.
+    // The band's thickness on its own edge: the configured thickness on every
+    // edge, the covering bar's included - its plate is a join on that band.
     function bandExtent(edge) {
         return Geo.bandExtent(edge, root.barEdge, root.thickness, root.gap, root.barCovers);
     }

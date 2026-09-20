@@ -217,39 +217,80 @@ Scope {
                     bottom: Appearance.sizes.barBottomMargin
                 }
 
-                // What the frame's surface draws in place of this bar's plate
-                // (frame-one-surface.md, stage 3): the plate's thickness, and
-                // how far its edge side sits from the screen edge - the
-                // surface's own margin plus the content's animated one, so
-                // the auto-hide slide is followed frame for frame. Absent
-                // while the plate is this bar's own to paint.
-                readonly property var framePlateRecord: {
-                    if (!barContent.plateOnFrame || !barRoot.screen) return null;
-                    const bottom = Config.options.bar.bottom;
-                    const contentInset = bottom ? barContent.anchors.bottomMargin : barContent.anchors.topMargin;
+                // The bar and the frame (frame-pin-grammar.md, the bar row).
+                // Where the bar is the frame's edge (Hug) its plate is a JOIN
+                // on the band on that edge: FUSED - on the hairline, one
+                // colour with it, the icons where they are - or RELEASED, the
+                // plate lifted off by the compositor's gap, drawn in from the
+                // side bands by the same, its corners rounding with the lift:
+                // an island. "auto" follows the workspace and the pin: fused
+                // while nothing is on the workspace and nothing pins it. The
+                // frame paints the plate in both states (published under
+                // "bar" like the dock's); BarContent stands its own plate
+                // down while it does. The exclusive zone does not move with
+                // it - the lift lives inside the gap the compositor already
+                // leaves, so windows never re-tile for it.
+                readonly property bool barOccupied: HyprlandData.occupiedByMonitorName[barRoot.screen?.name ?? ""] ?? false
+                readonly property bool joinAttached: FrameGeometry.barAttachedFor(GlobalStates.barPinned, barRoot.barOccupied)
+                // The band's inner edge in this window's frame: the surface
+                // sits at the screen edge less its own margin.
+                readonly property real bandInsetHere: FrameGeometry.bandExtent(FrameGeometry.barEdge) - Appearance.sizes.barSurfaceMargin
+                FrameJoin {
+                    id: barJoin
+                    anchors.fill: parent
+                    plate: barContent.backgroundItem
+                    edge: FrameGeometry.barEdge
+                    attached: barRoot.joinAttached
+                    travel: Appearance.sizes.hyprlandGapsOut
+                    bandInset: barRoot.bandInsetHere
+                    color: FrameGeometry.color
+                    active: FrameGeometry.paintsBarPlate && Config.options.bar.showBackground && !barContent.centerOnly
+                    paintsLocally: false
+                    paintsAtRest: true
+                }
+                // What the content carries for the join: the lift off the
+                // band along the edge's normal, and the same in from each
+                // side band (the island's gap; nothing while fused).
+                readonly property real plateLift: barJoin.active ? barJoin.lift : 0
+                readonly property real plateSideInset: barJoin.active ? FrameGeometry.bandExtent("left") + barJoin.lift : 0
+                readonly property real plateRadius: barJoin.active && barJoin.travel > 0
+                    ? Appearance.rounding.windowRounding * Math.min(1, barJoin.lift / barJoin.travel) : 0
+                readonly property var frameJoinRecord: {
+                    if (!barJoin.active || !barJoin.painting || !barRoot.screen) return null;
+                    const p = barContent.backgroundItem;
+                    // Read so a move re-evaluates this: the content's place in
+                    // the window (the slide, the lift, the side insets) and
+                    // the plate's own rect. mapToItem(null) is the window; the
+                    // window sits at the screen's edge less its own margin.
+                    barContent.x; barContent.y; barContent.width; barContent.height; p.x; p.y; p.width; p.height;
+                    const at = p.mapToItem(null, 0, 0);
+                    const oy = Config.options.bar.bottom
+                        ? barRoot.screen.height - barRoot.height - Appearance.sizes.barSurfaceMargin
+                        : Appearance.sizes.barSurfaceMargin;
                     return {
-                        edge: bottom ? "bottom" : "top",
-                        thickness: barContent.backgroundItem.height,
-                        inset: Appearance.sizes.barSurfaceMargin + contentInset
+                        edge: FrameGeometry.barEdge,
+                        plate: { x: at.x, y: at.y + oy, width: p.width, height: p.height },
+                        radii: { topLeft: p.radius, topRight: p.radius, bottomRight: p.radius, bottomLeft: p.radius },
+                        gap: barJoin.state.gap, neck: barJoin.state.neck, bulge: barJoin.state.bulge,
+                        meniscus: barJoin.meniscus, blendPerPixel: barJoin.blendPerPixel,
+                        climbFraction: barJoin.climbFraction, color: FrameGeometry.color
                     };
                 }
-                function publishFramePlate(record) {
+                function publishFrameJoin(record) {
                     const name = barRoot.screen?.name ?? "";
                     if (!name) return;
-                    const next = Object.assign({}, GlobalStates.frameBars);
-                    if (record) next[name] = record; else delete next[name];
-                    GlobalStates.frameBars = next;
+                    GlobalStates.publishFrameJoin(name, "bar", record);
                 }
-                onFramePlateRecordChanged: publishFramePlate(framePlateRecord)
+                onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
 
                 // Include in focus grab
                 Component.onCompleted: {
                     GlobalFocusGrab.addPersistent(barRoot);
-                    publishFramePlate(framePlateRecord);
+                    publishFrameJoin(frameJoinRecord);
                 }
                 Component.onDestruction: {
                     GlobalFocusGrab.removePersistent(barRoot);
-                    publishFramePlate(null);
+                    publishFrameJoin(null);
                 }
 
                 // Drag files over the bar to pop the drop shelf out below it -
@@ -356,22 +397,29 @@ Scope {
 
                     BarContent {
                         id: barContent
-                        
+
                         implicitHeight: Appearance.sizes.barHeight
+                        plateOnFrame: barJoin.drawsPlate && !barContent.centerOnly && Config.options.bar.showBackground
+                        plateRadius: barRoot.plateRadius
                         anchors {
                             right: parent.right
                             left: parent.left
                             top: parent.top
                             bottom: undefined
-                            topMargin: (Config?.options.bar.autoHide.enable && !mustShow)
-                                ? -Appearance.sizes.barHeight : barRoot.detachInset
+                            topMargin: ((Config?.options.bar.autoHide.enable && !mustShow)
+                                ? -Appearance.sizes.barHeight : barRoot.detachInset) + barRoot.plateLift
                             bottomMargin: (Config.options.interactions.deadPixelWorkaround.enable && barRoot.anchors.bottom) * -1
-                            rightMargin: (Config.options.interactions.deadPixelWorkaround.enable && barRoot.anchors.right) * -1
+                            leftMargin: barRoot.plateSideInset
+                            rightMargin: (Config.options.interactions.deadPixelWorkaround.enable && barRoot.anchors.right) * -1 + barRoot.plateSideInset
                         }
+                        // Off while the join moves the plate: a Behavior whose
+                        // target moves every frame restarts every frame.
                         Behavior on anchors.topMargin {
+                            enabled: !barJoin.moving
                             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                         }
                         Behavior on anchors.bottomMargin {
+                            enabled: !barJoin.moving
                             animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this)
                         }
 
@@ -390,8 +438,8 @@ Scope {
                             PropertyChanges {
                                 target: barContent
                                 anchors.topMargin: 0
-                                anchors.bottomMargin: (Config?.options.bar.autoHide.enable && !mustShow)
-                                    ? -Appearance.sizes.barHeight : barRoot.detachInset
+                                anchors.bottomMargin: ((Config?.options.bar.autoHide.enable && !mustShow)
+                                    ? -Appearance.sizes.barHeight : barRoot.detachInset) + barRoot.plateLift
                             }
                         }
                     }
@@ -503,6 +551,17 @@ Scope {
 
         function toggle(): void {
             GlobalStates.barOpen = !GlobalStates.barOpen
+        }
+        // The pin (frame-pin-grammar.md): pinned, the bar floats off the
+        // frame's band whatever the workspace holds.
+        function pin(): void {
+            GlobalStates.barPinned = true
+        }
+        function unpin(): void {
+            GlobalStates.barPinned = false
+        }
+        function togglePin(): void {
+            GlobalStates.barPinned = !GlobalStates.barPinned
         }
 
         function close(): void {

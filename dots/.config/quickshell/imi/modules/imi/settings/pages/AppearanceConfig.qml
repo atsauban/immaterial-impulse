@@ -150,6 +150,25 @@ ContentPage {
                 }
                 ConfigSelectionArray {
                     property bool rowVisible: Config.options.appearance.frame.enable
+                    icon: "web_asset"
+                    text: Translation.tr("Bar")
+                    currentValue: Config.options.appearance.frame.bar ?? "auto"
+                    onSelected: newValue => { Config.options.appearance.frame.bar = newValue; }
+                    options: [
+                        { "displayName": Translation.tr("Auto"), "value": "auto" },
+                        { "displayName": Translation.tr("Attached"), "value": "attached" },
+                        { "displayName": Translation.tr("Floating"), "value": "floating" }
+                    ]
+                    detailContent: StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("Auto: the bar sits on the frame's band while the workspace is empty and lifts off as an island once a window is there, or when you pin it (qs -c imi ipc call bar togglePin). Attached or Floating force one look. Hug style only.")
+                    }
+                }
+                ConfigSelectionArray {
+                    property bool rowVisible: Config.options.appearance.frame.enable
                     icon: "picture_in_picture_alt"
                     text: Translation.tr("Bar widget popups")
                     currentValue: Config.options.appearance.frame.popups ?? "auto"

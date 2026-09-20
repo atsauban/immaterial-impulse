@@ -38,13 +38,16 @@ Item {
     readonly property bool backgroundPainted: !centerOnly && Config.options.bar.showBackground
         && Config.options.bar.cornerStyle !== 2 && !root.isMaterial && !root.isFloatIslands
         && !root.plateOnFrame
-    // The plate is the FRAME's to paint (frame-one-surface.md, stage 3): in
-    // frame mode with a covering plate, Frame.qml draws this strip as its band
-    // on the bar's edge from what Bar.qml publishes, so the strip and the side
-    // bands are one shape on one surface. Painted here as well it would be
-    // the same translucent colour twice.
-    readonly property bool plateOnFrame: FrameGeometry.paintsBarPlate && !centerOnly
-        && Config.options.bar.showBackground
+    // The plate is the FRAME's to paint where the bar is the frame's edge
+    // (frame-one-surface.md stage 3, frame-pin-grammar.md the bar row): the
+    // bar's window publishes it as a join on the band and Frame.qml draws it,
+    // fused or lifted, so plate and bands are one shape on one surface.
+    // Painted here as well it would be the same translucent colour twice.
+    // Both set by the bar's window, which owns the join: whether the frame
+    // paints this plate, and the corner radius the join asks for - rounding
+    // with the lift.
+    property bool plateOnFrame: false
+    property real plateRadius: 0
     readonly property Item centerPillItem: centerPill
     readonly property bool centerPillPainted: centerPill.visible
 
@@ -174,7 +177,8 @@ Item {
         anchors.margins: root.floatPlate ? Appearance.sizes.hyprlandGapsOut : 0
         color: (!centerOnly && Config.options.bar.showBackground && Config.options.bar.cornerStyle !== 2 && !root.isMaterial && !root.isFloatIslands && !root.plateOnFrame)
             ? Appearance.colors.colBarBackground : "transparent"
-        radius: Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
+        radius: root.plateOnFrame ? root.plateRadius
+            : Config.options.bar.cornerStyle === 1 ? Appearance.rounding.windowRounding : 0
         border.width: (!centerOnly && Config.options.bar.cornerStyle === 1) ? 1 : 0
         border.color: Appearance.colors.colLayer0Border
     }

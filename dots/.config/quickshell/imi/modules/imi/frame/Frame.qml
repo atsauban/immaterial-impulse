@@ -55,21 +55,18 @@ Scope {
         id: band
         required property string edge // "left" | "right" | "top" | "bottom"
         required property bool hidden
-        // The bar's plate, when this is the bar's edge and the frame paints it.
-        property var barPlate: null
         // What the horizontal bands are drawing, for the side bands to stop at.
         property real topInset: 0
         property real bottomInset: 0
         readonly property bool vertical: band.edge === "left" || band.edge === "right"
-        readonly property real extent: band.barPlate ? band.barPlate.thickness : FrameGeometry.bandExtent(band.edge)
-        // How far the band's edge side sits from the screen edge: nothing for
-        // a band, the bar's slide for its plate - negative on the way out.
-        readonly property real inset: band.barPlate ? band.barPlate.inset : 0
+        // Every edge is a hairline band, the bar's included: the bar's plate
+        // is a join ON it (frame-pin-grammar.md), painted like the dock's.
+        readonly property real extent: FrameGeometry.bandExtent(band.edge)
+        readonly property real inset: 0
         // What of it is on screen, measured from the screen edge inward.
         readonly property real visibleExtent: Math.max(0, Math.min(band.extent, band.extent + band.inset))
-        // Nothing to paint where the bar's own plate is the border and the
-        // frame does not paint it, and nothing for a fullscreen window:
-        // transparent, never removed.
+        // Nothing to paint for a fullscreen window: transparent, never
+        // removed.
         readonly property bool painted: !band.hidden && band.extent > 0
         // The whole band, once: the join's field stops at the band's inner
         // edge (FrameJoinField's box), so nothing else paints these rows.
@@ -124,10 +121,8 @@ Scope {
                     bottom: true
                 }
 
-                Band { id: topBand;    edge: "top";    hidden: screenScope.hidden
-                       barPlate: surface.barPlate?.edge === "top" ? surface.barPlate : null }
-                Band { id: bottomBand; edge: "bottom"; hidden: screenScope.hidden
-                       barPlate: surface.barPlate?.edge === "bottom" ? surface.barPlate : null }
+                Band { id: topBand;    edge: "top";    hidden: screenScope.hidden }
+                Band { id: bottomBand; edge: "bottom"; hidden: screenScope.hidden }
                 Band { id: leftBand;   edge: "left";   hidden: screenScope.hidden
                        topInset: topBand.visibleExtent; bottomInset: bottomBand.visibleExtent }
                 Band { id: rightBand;  edge: "right";  hidden: screenScope.hidden
@@ -159,7 +154,6 @@ Scope {
                 // done, so the fields' changes ask for a repaint from the
                 // event loop like the Timer did.
                 property var joins: ({})
-                property var barPlate: null
                 // The keys, as a model the painters follow: diffed rather than
                 // reassigned, so a notification arriving does not rebuild the
                 // dock's field beside it.
@@ -167,7 +161,6 @@ Scope {
                 function takeRecords() {
                     const name = screenScope.modelData.name;
                     surface.joins = GlobalStates.frameJoins[name] ?? ({});
-                    surface.barPlate = GlobalStates.frameBars[name] ?? null;
                     const wanted = Object.keys(surface.joins).sort();
                     for (let i = joinKeys.count - 1; i >= 0; i--)
                         if (!wanted.includes(joinKeys.get(i).key)) joinKeys.remove(i);
@@ -180,7 +173,6 @@ Scope {
                 Connections {
                     target: GlobalStates
                     function onFrameJoinsChanged() { Qt.callLater(surface.takeRecords); }
-                    function onFrameBarsChanged() { Qt.callLater(surface.takeRecords); }
                 }
                 Component.onCompleted: surface.takeRecords()
                 function bandEdgeFor(edge) {

@@ -44,8 +44,13 @@ function bandThickness(configured) {
 // band under it made the frame fifty pixels thick on one edge and one pixel
 // on the other three, which is not a border, and the fillet that tried to
 // round that junction was the blob at each end of the bar.
+// Every edge has its band, the bar's included: the bar's plate is a JOIN on
+// that band (frame-pin-grammar.md, the bar row) - fused it sits on the
+// hairline as one colour, released it floats a gap off it - so the band no
+// longer stands aside for it. (Stage 3 had made the plate itself the band,
+// which left nothing for the plate to lift off.) The arguments beyond the
+// band are kept for the callers that still say them.
 function bandExtent(edge, barEdge, band, gapsOut, barCovers) {
-    if (barCovers && edge === barEdge) return 0;
     return Number(band) || 0;
 }
 

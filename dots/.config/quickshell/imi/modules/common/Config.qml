@@ -2115,6 +2115,12 @@ Singleton {
                     // button; "fused" stays fused even pinned (the pin only
                     // keeps it); "released" is the free card as before.
                     property string notifications: "auto"
+                    // How the bar meets the band on its edge: "auto" is fused
+                    // while the workspace is empty and nothing pins it, and
+                    // released - a gap off the band, an island - once a
+                    // window is there or the bar is pinned; "attached" and
+                    // "floating" force one look. Hug style only.
+                    property string bar: "auto"
                 }
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen

@@ -343,7 +343,7 @@ class FrameModeContract(unittest.TestCase):
         # coalesced away until that animation stopped (the plate froze, then
         # snapped, on the user's session; a Timer-driven colour rendered).
         self.assertIn("function onFrameJoinsChanged() { Qt.callLater(surface.takeRecords); }", frame)
-        self.assertIn("function onFrameBarsChanged() { Qt.callLater(surface.takeRecords); }", frame)
+        self.assertNotIn("onFrameBarsChanged", frame, "the bar's plate is a join record like the dock's, not a second channel")
         self.assertNotIn("GlobalStates.frameJoins[screenScope", frame)
         self.assertIn("onStripChanged: { active = false; active = true; }", frame)
         self.assertIn("property rect pinnedBox: Qt.rect(0, 0, 0, 0)", field)
@@ -437,18 +437,28 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn('readonly property string frameEdge: root.isRight ? "right" : root.isLeft ? "left" : ""', popup)
         self.assertIn("function publishFrameJoin(screen: string, key: string, record: var): void", _strip((ROOT / "GlobalStates.qml").read_text()))
         self.assertIn("Component.onDestruction: publishFrameJoin(null)", dock)
-        # Stage 3: where the bar's plate covers its strip, the frame's band on
-        # that edge IS the plate - the bar publishes thickness and slide,
-        # BarContent paints no plate, and the authority says when.
+        # Stage 3, as the pin grammar left it: where the bar is the frame's
+        # edge (Hug) its plate is a JOIN on the band there, published under
+        # "bar" like the dock's - fused on the hairline, or released a gap off
+        # it by workspace occupancy or the pin - and BarContent stands its
+        # plate down while the frame paints it. The band on the bar's edge
+        # stays the hairline; the exclusive zone never moves.
         geometry = _strip(GEOMETRY.read_text())
         self.assertIn("readonly property bool paintsBarPlate: root.enabled && root.barCovers", geometry)
-        self.assertIn("readonly property bool plateOnFrame: FrameGeometry.paintsBarPlate && !centerOnly", bar)
+        self.assertIn("function barAttachedFor(pinned: bool, occupied: bool): bool", geometry)
+        self.assertIn("return !pinned && !occupied;", geometry)
+        self.assertIn("property bool plateOnFrame: false", bar)
         self.assertEqual(bar.count("!root.plateOnFrame"), 2, "the plate's colour AND its region flag stand down together")
         barWindow = _strip((ROOT / "modules/imi/bar/Bar.qml").read_text())
-        self.assertIn("if (!barContent.plateOnFrame || !barRoot.screen) return null;", barWindow)
-        self.assertIn("inset: Appearance.sizes.barSurfaceMargin + contentInset", barWindow)
-        self.assertIn("GlobalStates.frameBars = next;", barWindow)
-        self.assertIn('barPlate: surface.barPlate?.edge === "top" ? surface.barPlate : null', frame)
+        self.assertIn('GlobalStates.publishFrameJoin(name, "bar", record);', barWindow)
+        self.assertIn("readonly property bool joinAttached: FrameGeometry.barAttachedFor(GlobalStates.barPinned, barRoot.barOccupied)", barWindow)
+        self.assertIn("plateOnFrame: barJoin.drawsPlate && !barContent.centerOnly && Config.options.bar.showBackground", barWindow)
+        self.assertIn("readonly property var occupiedByMonitorName:", _strip((ROOT / "services/HyprlandData.qml").read_text()))
+        states = _strip((ROOT / "GlobalStates.qml").read_text())
+        self.assertIn("property bool barPinned: false", states)
+        self.assertNotIn("frameBars", states)
+        self.assertNotIn("barPlate", frame)
+        self.assertIn('property string bar: "auto"', _strip((ROOT / "modules/common/Config.qml").read_text()))
 
     def test_the_family_gates_the_surface_on_the_option(self):
         fam = FAMILY.read_text()

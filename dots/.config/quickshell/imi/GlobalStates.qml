@@ -96,11 +96,10 @@ Singleton {
     function publishFrameJoin(screen: string, key: string, record: var): void {
         root.frameJoins = FrameGeo.withJoin(root.frameJoins, screen, key, record);
     }
-    // The bar's plate, where the frame's surface paints it (stage 3): per
-    // screen, the plate's thickness and how far its edge side sits from the
-    // screen edge (negative while auto-hide slides it out). Same shape and
-    // lifetime rules as frameJoins.
-    property var frameBars: ({})
+    // The bar's pin (frame-pin-grammar.md): pinned means released - the bar
+    // floats a gap off the frame's band whatever the workspace holds; unpinned
+    // it follows `appearance.frame.bar`. One pin for every screen's bar.
+    property bool barPinned: false
     // The active Wallpaper Engine scene's content aspect (w/h), published by
     // Background from the live surface's real content size - which the crop
     // picker needs because the scene's authored aspect is not the preview

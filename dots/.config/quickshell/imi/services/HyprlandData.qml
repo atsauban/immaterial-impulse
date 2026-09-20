@@ -50,6 +50,17 @@ Singleton {
     // `activespecial` one included. Hyprland blurs the whole screen behind a
     // special workspace, so anything drawing sixty frames a second under one
     // is paying for a fullscreen blur nobody can see through.
+    // Whether anything is on the monitor's active workspace: the frame's
+    // bar fuses to the band while the workspace is empty and releases once
+    // a window is there (frame-pin-grammar.md).
+    readonly property var occupiedByMonitorName: {
+        const out = ({});
+        for (const mon of root.monitors) {
+            out[mon.name] = root.windowList.some(w => w.monitor === mon.id
+                && w.workspace?.id === mon.activeWorkspace?.id);
+        }
+        return out;
+    }
     readonly property var specialWorkspaceByMonitorName: {
         const out = ({});
         for (const mon of root.monitors)

@@ -20,14 +20,13 @@ TestCase {
         compare(Geo.bandThickness(-4), 2);
     }
 
-    function test_a_covering_bars_edge_has_no_band() {
-        // The bar's own plate is the border there: opaque, both screen edges,
-        // and already the thickest thing on that side. A band under it made
-        // the frame fifty pixels thick on one edge and one on the other three.
-        compare(Geo.bandExtent("top", "top", 2, 5, true), 0);
+    function test_the_bars_edge_keeps_its_band() {
+        // The bar's plate is a join ON the band (frame-pin-grammar.md): fused
+        // it sits on the hairline as one colour, released it floats a gap
+        // off it. So the band is there in every style, on every edge.
+        compare(Geo.bandExtent("top", "top", 2, 5, true), 2);
         compare(Geo.bandExtent("bottom", "top", 2, 5, true), 2);
         compare(Geo.bandExtent("left", "top", 2, 5, true), 2);
-        // A floating bar is inside the frame, so its edge is a band like the rest.
         compare(Geo.bandExtent("top", "top", 2, 5, false), 2);
         compare(Geo.bandExtent("left", "top", 2, 5, false), 2);
     }
@@ -69,13 +68,13 @@ TestCase {
         // from the screen's top edge to the bottom band.
         compare(Geo.bandMargins("top", "top", 2, 5, true), { top: 0, bottom: 0, left: 0, right: 0 });
         compare(Geo.bandMargins("bottom", "top", 2, 5, true), { top: 0, bottom: 0, left: 0, right: 0 });
-        compare(Geo.bandMargins("left", "top", 2, 5, true), { top: 0, bottom: 2, left: 0, right: 0 });
-        compare(Geo.bandMargins("right", "top", 2, 5, true), { top: 0, bottom: 2, left: 0, right: 0 });
+        compare(Geo.bandMargins("left", "top", 2, 5, true), { top: 2, bottom: 2, left: 0, right: 0 });
+        compare(Geo.bandMargins("right", "top", 2, 5, true), { top: 2, bottom: 2, left: 0, right: 0 });
         // Floating bar: four bands, the side ones between the horizontal ones.
         compare(Geo.bandMargins("top", "top", 2, 5, false), { top: 0, bottom: 0, left: 0, right: 0 });
         compare(Geo.bandMargins("left", "top", 2, 5, false), { top: 2, bottom: 2, left: 0, right: 0 });
         // Bar at the bottom, covering: the gap is at the bottom instead.
-        compare(Geo.bandMargins("left", "bottom", 2, 5, true), { top: 2, bottom: 0, left: 0, right: 0 });
+        compare(Geo.bandMargins("left", "bottom", 2, 5, true), { top: 2, bottom: 2, left: 0, right: 0 });
     }
 
     function test_no_two_bands_overlap() {
