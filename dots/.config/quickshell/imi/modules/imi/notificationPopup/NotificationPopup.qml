@@ -43,8 +43,12 @@ Scope {
         // band's depth sat under its icons (reported with the Float style).
         function roomOn(edge: string): real {
             // A released bar reserves its lift too (Bar.qml releaseZoneExtra,
-            // carried on its join record) - the cards keep clear of that.
-            const extra = GlobalStates.frameJoins[root.screen?.name ?? ""]?.bar?.zoneExtra ?? 0;
+            // carried on its join record) - the cards keep clear of that. In
+            // the Islands style there is no plate record: each island carries
+            // the same zoneExtra, so the first one that is up says it.
+            const joins = GlobalStates.frameJoins[root.screen?.name ?? ""] ?? {};
+            const barRecord = joins.bar ?? joins["barIsland:left"] ?? joins["barIsland:center"] ?? joins["barIsland:right"] ?? null;
+            const extra = barRecord?.zoneExtra ?? 0;
             const bar = FrameGeometry.barEdge === edge ? FrameGeometry.barThickness + FrameGeometry.gap + extra : 0;
             return Math.max(bar, FrameGeometry.insets[edge]);
         }
