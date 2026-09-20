@@ -262,7 +262,12 @@ translucent against the band, it is the band.
   motion there), and a content-driven retarget runs from the event loop, after the layout has
   settled. And a collapsed card kept a whole neck: a stalk hung under the bar until the timer ran
   out - the fillets are now as tall as the card (the neck scales with its height, squared), and a
-  card under 3 px publishes nothing.
+  card under 3 px publishes nothing. Last, a content-driven card's width Behavior is off while
+  the content drives it, and the Privacy card dismissed mid-collapse had its width snap to the
+  parked square while its height still shrank - a thin drip under the bar; on the way out the
+  card is the shell's again and its width and place animate (`card.followsContent`). Measuring
+  this in the sandbox: `grim` is a screencast, so every frame grabbed flipped the Privacy card's
+  "Screen" section on and off - the card's own layout is stable; the tool was the flapper.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
