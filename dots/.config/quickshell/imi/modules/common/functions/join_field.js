@@ -70,7 +70,11 @@ function field(u, px, py) {
     var hx = u.pillSize.x * 0.5 + Math.abs(u.bandNormal.x) * half;
     var hy = u.pillSize.y * 0.5 + Math.abs(u.bandNormal.y) * half;
     var pill = roundedBox(px - cx, py - cy, hx, hy, u.pillRadii);
-    var band = u.bandOrigin - toward(u, px, py) - bulgeAt(u, px, py) + u.softness;
+    var tw = toward(u, px, py);
+    // bandPaint 0: nothing past the band's resting surface but the plate's
+    // own reach (frame_join.frag, the same guard).
+    if (u.bandPaint === 0 && tw > u.bandOrigin) return pill;
+    var band = u.bandOrigin - tw - bulgeAt(u, px, py) + u.softness;
     return smoothMinimum(pill, band, blendAt(u, px, py));
 }
 
@@ -145,7 +149,9 @@ function outline(u, width, height, maxRects) {
             var fb = Math.max(0, 1 - tb * tb);
             hump = bulge * fb * fb;
         }
-        var p = pill(a, n), b = bandOrigin - toward - hump + softness;
+        var p = pill(a, n);
+        if (u.bandPaint === 0 && toward > bandOrigin) return p;
+        var b = bandOrigin - toward - hump + softness;
         if (k <= 0.001) return Math.min(p, b);
         var hh = Math.max(k - Math.abs(p - b), 0) / k;
         return Math.min(p, b) - hh * hh * k * 0.25;

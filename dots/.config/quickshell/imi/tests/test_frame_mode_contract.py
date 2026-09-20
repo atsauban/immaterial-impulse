@@ -224,6 +224,9 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn("readonly property bool fieldAvailable: field.GraphicsInfo.api !== GraphicsInfo.Software", field)
         self.assertIn("&& field.status !== ShaderEffect.Error", field)
         self.assertIn("readonly property real pixelRatio: Window.window?.devicePixelRatio ?? 1", field)
+        self.assertIn("readonly property real bandPaint: field.paintBand ? 1 : 0", field)
+        self.assertIn("if (bandPaint < 0.5 && tw > bandOrigin) return pill;", (ROOT / "modules/common/shaders/frame_join.frag").read_text())
+        self.assertIn("paintBand: false", _strip(FRAME.read_text()), "the frame's fields paint no band side: the band is the band's own paint")
         self.assertNotRegex(field, r"import qs\.services|FrameGeometry|GlobalStates|Config\.", "the painter reads no service: it is handed everything")
 
     def test_the_split_shader_binary_is_built_from_its_source(self):

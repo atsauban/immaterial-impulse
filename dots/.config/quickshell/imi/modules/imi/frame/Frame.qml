@@ -334,6 +334,11 @@ Scope {
                             climbFraction: joinField.j?.climbFraction ?? 0
                             outlineLimit: outlinePool.count
                             pinnedBox: fieldLoader.strip
+                            // The band side is the band's own paint (or the
+                            // bar's plate): a field fills only its plate, its
+                            // reach and the fillets - a popup's box crosses
+                            // the bar's gap, and filled it (footage).
+                            paintBand: false
                         }
                     }
                     Instantiator {

@@ -58,6 +58,15 @@ layout(std140, binding = 0) uniform buf {
     // along the band keeps the full radius and the climb is capped - the two
     // stop being one number.
     float climbFall;
+    // 1: the band's half-plane is painted where it lies inside the box (the
+    // field IS the band there, the dock's and the bar's boxes stop at the
+    // band's edge). 0: only the plate, its reach and the fillets - nothing
+    // past the band's resting surface. A field whose box crosses its band
+    // (a bar popup's, pinned to the frame's band while its own band is the
+    // bar's plate) filled the band side across the whole box: with the bar
+    // floating it painted the gap between hairline and plate solid, the
+    // width of the box.
+    float bandPaint;
 };
 
 // A rounded box with a radius per corner: x top-left, y top-right,
@@ -129,7 +138,9 @@ float field(vec2 p, float k)
     // along the whole box while the field painted, and the row stepped back
     // at the hand-over); inside the band the band's own surface covers it.
     // Less the bulge, which lifts that edge toward the departing body.
-    float band = bandOrigin - dot(p, bandNormal) - bulgeAt(p) + softness;
+    float tw = dot(p, bandNormal);
+    if (bandPaint < 0.5 && tw > bandOrigin) return pill;
+    float band = bandOrigin - tw - bulgeAt(p) + softness;
     return smoothMinimum(pill, band, k);
 }
 

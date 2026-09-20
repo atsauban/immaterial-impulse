@@ -146,6 +146,13 @@ ShaderEffect {
     // How far the plate's field reaches into the band: the first pixels of a
     // lift, before the blend can bridge them.
     readonly property real reach: Math.max(0, 2 - field.gap)
+    // Whether the band's half-plane is painted where it lies inside the box
+    // (frame_join.frag `bandPaint`). Off for a field whose box crosses its
+    // band - a bar popup's, whose band is the bar's plate and whose box is
+    // pinned to the frame's band: on, it filled the gap between a floating
+    // bar and the hairline solid across the box.
+    property bool paintBand: true
+    readonly property real bandPaint: field.paintBand ? 1 : 0
     // The WINDOW's ratio, which follows fractional scaling; the screen's is
     // the output's integer scale.
     readonly property real pixelRatio: Window.window?.devicePixelRatio ?? 1
@@ -172,7 +179,8 @@ ShaderEffect {
             bandNormal: field.bandNormal, bandOrigin: field.bandOrigin,
             blend: field.blend, waistHalf: field.waistHalf, waistCenter: field.waistCenter,
             softness: field.softness, reach: field.reach,
-            bulge: field.bulge, bulgeHalf: field.bulgeHalf, climbFall: field.climbFall
+            bulge: field.bulge, bulgeHalf: field.bulgeHalf, climbFall: field.climbFall,
+            bandPaint: field.bandPaint
         }, field.width, field.height, field.outlineLimit);
         const ox = field.x, oy = field.y;
         return rects.map(r => ({ x: r.x + ox, y: r.y + oy, width: r.width, height: r.height }));
