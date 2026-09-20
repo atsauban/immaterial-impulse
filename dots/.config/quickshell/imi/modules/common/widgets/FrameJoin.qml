@@ -131,9 +131,12 @@ Item {
     // (`gap` px off the band, at rest) toward whatever `attached` now says -
     // a drag that pinned settles up to the travel, one that did not springs
     // back, and neither jumps.
-    function disturb(gap: real): void {
+    function disturb(gap: real, neck: real): void {
         if (!root.active) return;
-        root.state = Object.assign({}, root.state, { gap: Math.max(0, gap), speed: 0, settled: false });
+        root.state = Object.assign({}, root.state, {
+            gap: Math.max(0, gap), speed: 0, settled: false,
+            neck: Math.max(0, Math.min(1, neck ?? root.state.neck))
+        });
         stepper.running = true;
     }
 

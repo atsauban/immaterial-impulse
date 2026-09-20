@@ -419,7 +419,13 @@ class FrameModeContract(unittest.TestCase):
         # the band, never closes - and unpinning fuses back and resumes the
         # clock rather than dismissing.
         self.assertIn('function roomOn(edge: string): real', popup)
-        self.assertIn("function disturb(gap: real): void", _strip((ROOT / "modules/common/widgets/FrameJoin.qml").read_text()))
+        self.assertIn("function disturb(gap: real, neck: real): void", _strip((ROOT / "modules/common/widgets/FrameJoin.qml").read_text()))
+        # ...and toward the band the hand is never stopped: the neck forms
+        # with the approach, past the edge the card goes under, and released
+        # there it slides the rest of the way in and closes.
+        self.assertIn("readonly property real dragNeck: root.dragPull < 0", group)
+        self.assertIn("if (gap <= -root.dragCloseDepth) {", group)
+        self.assertIn("else if (root.pinned && gap < cardJoin.travel / 2) root.unpin();", group)
         self.assertIn("function frameDragRelease(diffX: real): void", group)
         self.assertIn("if (!root.pinned && away >= root.dragThreshold) root.pin();", group)
         self.assertIn("root.notifications.forEach(notif => root.controller.resumeTimeout(notif));", group)

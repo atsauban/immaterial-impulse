@@ -64,28 +64,47 @@ MouseArea { // Notification group area
 
     // --- dragging, where the frame paints (frame-pin-grammar.md §2) -------
     // Away from the band the pull is elastic - it stiffens toward a limit
-    // and never lets go of the card - and past a threshold it pins; back
-    // into the band past the threshold it unpins; released short of either
-    // it springs back to where it was. A drag never closes a card here.
+    // and never lets go of the card - and past a threshold it pins. Toward
+    // the band the card follows the hand all the way: the join forms as it
+    // nears (the neck below rides how close it is), it touches, and pushed
+    // on past the band's edge it goes under. Released, it goes where it is
+    // nearest: past the edge by a little, it slides the rest of the way in
+    // and closes; nearer the band than its pinned rest, it lands and
+    // unpins; otherwise it springs back to where it was.
     property real dragPull: 0
     readonly property real dragLimit: Appearance.sizes.elevationMargin * 1.5
     readonly property real dragThreshold: Appearance.sizes.elevationMargin
+    readonly property real dragCloseDepth: Math.max(root.dragThreshold * 3, root.width * 0.15)
+    // The gap the hand is holding: the join's own plus the pull, negative
+    // once the card is inside the band.
+    readonly property real dragGap: cardJoin.state.gap + root.dragPull
+    // The bridge as the hand brings the card in: from the join's own neck
+    // to whole at the band, so the meniscus grows with the approach and the
+    // landing on release starts from what was already drawn.
+    readonly property real dragNeck: root.dragPull < 0
+        ? Math.max(cardJoin.state.neck, Math.min(1, 1 - Math.max(0, root.dragGap) / Math.max(1, cardJoin.travel)))
+        : cardJoin.state.neck
     function elastic(d: real): real {
         const limit = root.dragLimit;
         return limit * Math.tanh(d / limit);
     }
     function frameDragUpdate(diffX: real): void {
         const away = root.frameEdge === "right" ? -diffX : diffX;
-        const base = cardJoin.state.gap;
-        root.dragPull = away >= 0 ? root.elastic(away) : -Math.min(base, root.elastic(-away));
+        root.dragPull = away >= 0 ? root.elastic(away) : away;
     }
     function frameDragRelease(diffX: real): void {
         const away = root.frameEdge === "right" ? -diffX : diffX;
-        const from = cardJoin.state.gap + root.dragPull;
+        const gap = root.dragGap, neck = root.dragNeck;
+        if (gap <= -root.dragCloseDepth) {
+            // Under the band already: slide the rest of the way in and close.
+            root.leaveWithAnimation(root.leavesLeft, () => root.notifications.forEach(notif => root.controller.timeout(notif)));
+            root.dragPull = 0;
+            return;
+        }
         root.dragPull = 0;
         if (!root.pinned && away >= root.dragThreshold) root.pin();
-        else if (root.pinned && -away >= root.dragThreshold) root.unpin();
-        cardJoin.disturb(from);
+        else if (root.pinned && gap < cardJoin.travel / 2) root.unpin();
+        cardJoin.disturb(gap, neck);
     }
     FrameJoin {
         id: cardJoin
@@ -125,7 +144,7 @@ MouseArea { // Notification group area
             plate: { x: at.x, y: at.y, width: background.width, height: background.height },
             radii: { topLeft: background.radius, topRight: background.radius,
                      bottomRight: background.radius, bottomLeft: background.radius },
-            gap: cardJoin.state.gap + root.dragPull, neck: cardJoin.state.neck, bulge: cardJoin.state.bulge,
+            gap: root.dragGap, neck: root.dragNeck, bulge: cardJoin.state.bulge,
             meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
             climbFraction: cardJoin.climbFraction, color: root.platePaint
         };
