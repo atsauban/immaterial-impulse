@@ -441,11 +441,51 @@ while the mode is on (`running: root.enabled`, re-armed on `configreloaded` whil
 rewrites hypr files itself, so an ungated probe spawned `hyprctl` on every self-inflicted reload for
 every user. `lint_globalstates_import.py` refuses a QML file that names `GlobalStates` without a way
 to resolve it (a throwing binding is a warning, not a load failure: an earlier dock occupant read
-through it was inert for a whole review round). `modules/imi/frame/Frame.qml` draws four bands per
-screen from `bandMargins`: the horizontal bands span the width (under the bar's plate on the bar's
-edge, at the screen edge otherwise), the side bands run between them, so no two bands overlap - the
-frame's colour is translucent, and a crossing was a band-square painted twice. The bands sit on the
-TOP layer, like the fillets on Overlay: chrome, over a floating window dragged into the gap. A round
+through it was inert for a whole review round). `modules/imi/frame/Frame.qml` draws the four bands on
+ONE surface per screen (`docs/proposals/frame-one-surface.md`, stage 1): four edges anchored, no
+margins, an empty mask, `WlrKeyboardFocus.None`, `screen: screenScope.modelData`, and the bands as
+Rectangles on it placed from `bandMargins`: the horizontal bands span the width (under the bar's
+plate on the bar's edge, at the screen edge otherwise), the side bands run between them, so no two
+overlap - the frame's colour is translucent, and a crossing was a band-square painted twice. One
+surface rather than four because a surface is the unit blur is computed against and the outline a
+specular edge is drawn along: four bands were four outlines meeting at four corners, and a glass
+treatment cannot be applied to a border that is four pieces. It also means one composed blur region
+for the whole border, gated per band on exactly what paints. The surface sits on the
+TOP layer, like the bezel corners on Overlay: chrome, over a floating window dragged into the gap.
+**`quickshell:frame` carries `blur = false` in `rules.lua`, and that half was missing for as long as
+the region existed**: the band was blurred whole-surface off the catch-all while the bar and the dock
+beside it were blurred through a region - two mechanisms at two thresholds on one colour, which is
+the seam that made an attached dock read as a separate object, and
+`tests/lint_blur_region_pairing.py` had been red on it the whole time (nobody ran it).
+**Stage 2: the frame's surface paints the dock's plate and neck**, so the whole silhouette is one
+outline on one surface. `FrameJoin` keeps the physics and `FrameJoinField` is the painter, split out
+so it can be drawn anywhere; `Dock.qml` publishes the plate in SCREEN coordinates
+(`dock_geometry.js` `surfaceOrigin` + the plate's place summed up the tree) with the corners, the
+solver's numbers and the plate's own animated colour into `GlobalStates.frameJoins[screen]`, and
+`Frame.qml` draws it and adds the field's own outline (`join_field.js`, the shader's field on the
+CPU, one `Region` per painted row) to its blur region while the dock's own region stands down; the
+strip's length itself breathes on the fluid's spring (`FluidValue`, motion-split.md §8) rather than
+a tween, so an icon arriving moves plate, meniscus and outline on one curve. On the frame's surface
+the field's box is PINNED to the band strip (`FrameJoinField.pinnedBox`) and re-made when the strip
+changes: a ShaderEffect directly under that window's content item paints its uniforms but never
+its own position or size change (measured; frame-one-surface.md stage 2), so the plate travels
+inside a box that never moves; and the frame takes `GlobalStates.frameJoins`/`frameBars` up from
+`Qt.callLater`, not a binding - a repaint asked for from inside another window's sync is only noted
+under the threaded render loop, and the plate froze until a random later frame. **The frame paints the pill at rest too** (`paintsAtRest`): a hand-over back
+to the dock's Rectangle at the cut crosses two render loops nothing orders, and it showed one blank
+frame at every cut (60 fps capture) - one painter in both states, and the floating pill's 1 px
+border is the stated cost. Under fullscreen the dock paints itself (`paintsLocally` follows
+`fullscreenOnThisMonitor`), since a Top surface is buried there.
+**Stage 3: where the bar's plate covers its strip (Hug, painted - `FrameGeometry.paintsBarPlate`),
+the frame's band on that edge IS the plate**: `Bar.qml` publishes thickness and the plate's edge-side
+inset (surface margin + the content's animated auto-hide margin) into `GlobalStates.frameBars[screen]`,
+`BarContent` paints no plate (`plateOnFrame`), and `Frame.qml`'s side bands inset by the horizontal
+edges' DRAWN extents rather than by `bandMargins` - so the strip and the side bands meeting at the top
+corners are one shape. Other bar styles keep their own plates: islands inside the frame, not the frame.
+("feat(frame): one surface per screen draws the four bands"),
+("fix(frame): the band's blur is scoped like the bar's, so the two stop being two"),
+("feat(frame): the frame's surface paints the dock's plate and neck"),
+("feat(frame): the frame's band on the bar's edge is the bar's plate"). A round
 on Bottom ("under every window, over the wallpaper") was invisible on every cold start with the mode
 on: `quickshell:background` is on Bottom too and a level stacks by creation order, so a band created
 before the wallpaper sat under it - it showed only when the mode was switched on at runtime (measured

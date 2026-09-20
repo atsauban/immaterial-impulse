@@ -374,18 +374,16 @@ the default band its look-only switch takes the effects half alone.
   region - which tracks its item's own geometry - rides the lift. The inward
   margin gives up exactly what the outward one gains. The icons ride the
   pill through a centre offset on the strip (`liftOffset`).
-- **Corners**: `cornerRadiiAt(edge, radius, s, seam, reach)`, with the span
-  from `cornerSpan` when a neck is drawn: it starts where the pill's ends
-  leave the band - before the seam for the default 5 px lift, since the
-  neck's blend tapers to nothing at the ends - and ends at the pinch; with
-  no neck, over the whole scalar. The two
-  outward radii are `radius * clamp((s - seam) / ((1 - seam) * reach), 0, 1)`
-  - square while the outlines are one, rounding over the NECK's span as the
-  flank exposes them, round by the pinch - on both directions of the one
-  scalar. Rounding to rest instead left a square corner hovering over a lit
-  gap once the flank had passed it (a reviewer's frame scan). The inward
-  pair stays at `radius` throughout. With no lift the seam is 0, the reach
-  1, and the rounding rides the look's own effects-tier scalar.
+- **Corners**: `cornerRadiiAt(edge, radius, s, seam, reach)`. Wherever a
+  neck is drawn the pill keeps ALL FOUR radii the whole way (`s` is pinned
+  to 1). The outward pair used to square itself while the outlines were one
+  and round over the neck's span, which is right for a stalk meeting a flat
+  edge and wrong for this join: the neck's meniscus wraps the corner, so a
+  corner that vanished under it took the pill's flat flank with it and the
+  dock read as LOSING HEIGHT on the way out, which is the one thing that
+  must not change while it leaves. With no lift there is no neck to wrap
+  anything, and the outward pair still rides the look's own effects-tier
+  scalar from square to round.
 - **The neck**: the blend's radius is nothing at rest and four lifts at
   the seam (`neckBlend` - a smooth-minimum bridges a gap of g once its
   radius passes 2g, and the gap at the seam is half the lift), held through
@@ -570,3 +568,26 @@ The rule for the next slice is the rule for this one: measure it against
 the reference's grammar (§2) before writing it, and if the measurement says
 the tier's shape is wrong for it, retune the tier and its paragraph rather
 than writing a literal beside them.
+
+## 8. The row breathes on the same spring
+
+The dock's strip changes length without anything splitting: an app opens and its icon
+arrives, the media tile comes and goes with playback, a separator with it. That is not
+the split's grammar, but it is the same body, and a body that eases to its new width on
+a tween beside a join that moves on a spring reads as two materials. Captured at 60 fps
+on the user's session (2026-09-20): an icon appeared, the row re-centred on the running
+area's `Behavior` while the separator beside it toggled `visible` and took its room out in
+one frame, and the plate - derived from the row - was left holding the old length under
+icons that had already moved.
+
+So a slot's length is one degree of freedom on the drop's own position spring
+(`fluid.js` `spring`, K_POS/C_POS: about 12 rad/s, damping 0.58): it passes its target
+once by about a tenth of the step, is half way in under 0.15 s and lands ON the target
+inside a second (`tst_fluid.qml`). `FluidValue` drives it - a gated `FrameAnimation`,
+stepped through the motion policy's `scaleStep` like the join's, so the speed slider slows
+the breathing and reduce motion lands it at once - and it sits under the running area's
+length (`Dock.qml` `alongSize`, the content clipped only while it moves) and under each
+separator's width (`DockSeparator.shown`, which fades and keeps its place until it has
+no width left). The plate, the meniscus and the blur outline all derive from the row, so
+they take the same curve frame by frame with nothing else to sequence.
+
