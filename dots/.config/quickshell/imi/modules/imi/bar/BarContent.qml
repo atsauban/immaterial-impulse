@@ -70,9 +70,14 @@ Item {
     readonly property Item leftIslandItem: leftIsland
     readonly property Item centerIslandItem: centerIsland
     readonly property Item rightIslandItem: rightIsland
-    readonly property bool leftIslandPainted: leftIsland.visible
-    readonly property bool centerIslandPainted: centerIsland.visible
-    readonly property bool rightIslandPainted: rightIsland.visible
+    // ...and not while the frame paints an island (onFrame): the frost for
+    // it is the frame's outline region then, and this window's own rounded
+    // region over its transparent island blurred the frame's paint a second
+    // time - measured in the sandbox as the island's body a shade lighter
+    // than a square corner the frame painted outside the rounded region.
+    readonly property bool leftIslandPainted: leftIsland.visible && !leftIsland.onFrame
+    readonly property bool centerIslandPainted: centerIsland.visible && !centerIsland.onFrame
+    readonly property bool rightIslandPainted: rightIsland.visible && !rightIsland.onFrame
 
     function filterLayout(layout) {
         return layout.filter(name => {

@@ -41,7 +41,10 @@ class FloatIslandsContractTests(unittest.TestCase):
             self.assertIn("!root.centerOnly && populated", island, rel)
             for name in sections:
                 self.assertIn(f"id: {name}Island", text, f"{rel}: {name}")
-                self.assertIn(f"readonly property bool {name}IslandPainted: {name}Island.visible", text, f"{rel}: {name}")
+                # The horizontal bar's islands are painted by the frame in frame
+                # mode, and stand their own blur region down while they are.
+                on_frame = f" && !{name}Island.onFrame" if rel == "modules/imi/bar/Bar.qml" else ""
+                self.assertIn(f"readonly property bool {name}IslandPainted: {name}Island.visible{on_frame}", text, f"{rel}: {name}")
             # The full-width plate stands down for the islands.
             self.assertIn("&& !root.isFloatIslands", text.split("readonly property bool backgroundPainted", 1)[1].split("\n\n", 1)[0], rel)
 
