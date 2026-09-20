@@ -488,9 +488,14 @@ a record like the dock's ("feat(frame): the bar's plate is a join on its band"):
 set by the bar's window), the band on the bar's edge stays the hairline, and the plate is FUSED to it
 (on the hairline, between the side bands) or RELEASED (lifted by the compositor's gap, inset from the
 side bands by the same, corners rounding with the lift - an island). `FrameGeometry.barAttachedFor(pinned,
-occupied)` decides from `frame.bar`: "auto" is fused while the monitor's active workspace has no window
-and nothing pins the bar (`HyprlandData.occupiedByMonitorName`, `GlobalStates.barPinned`, `bar togglePin`
-over IPC), "attached"/"floating" force one look. Released, the bar reserves its lift as well
+occupied)` decides from `frame.bar`: "auto" is fused (Hug) while a window is on the monitor's active
+workspace and nothing pins the bar - the frame is the border around the windows - and released (Float)
+over an empty workspace (`HyprlandData.occupiedByMonitorName`, `GlobalStates.barPinned`, `bar togglePin`
+over IPC; turned at review, "fix(frame): auto hugs with windows, the bar's shadow stands down, Hug and
+Float are states"), "attached"/"floating" force one look. In frame mode Hug and Float are STATES of the
+plate: the Bar style row offers Plate / Islands / M3 and a Bar state row picks Auto / Hug / Float; the
+Islands style follows the same state (each island rises out of the band, on the tween for now); the
+bar's own shadow stands down while the frame paints its plate. Released, the bar reserves its lift as well
 (`releaseZoneExtra`, the dock's `splitZoneExtra` rule: flips at the start of a lift and the end of a
 landing, one re-tile per state change) - with the zone held the island sat ON the first window's edge
 (measured at 8x, "feat(frame): a released bar reserves its lift"); the notification popup's `roomOn`

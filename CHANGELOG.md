@@ -22,12 +22,13 @@ own repo; the installer pins which revision it builds.
   and keeps it, and unpinning (the button, or a drag back) lands it and restarts
   its clock. Dragging a fused card is elastic and never dismisses. The dock
   follows its own pin under the new `Auto` (pinned floats, unpinned sits on the
-  band); your existing Attached or Floating choice is kept. The bar itself (Hug style)
-  sits fused on the frame's edge while the workspace is empty and lifts off it as an
-  island - by the compositor's gap, corners rounding, windows making room for it - once a
-  window is open; pin it
-  with `qs -c imi ipc call bar togglePin` to keep it lifted. Settings > Appearance >
-  Frame gains a row each for the bar, popups and notifications.
+  band); your existing Attached or Floating choice is kept. The bar itself hugs the
+  frame while a window is open and floats over an empty workspace as an island - by the
+  compositor's gap, corners rounding; pin it with `qs -c imi ipc call bar togglePin` to
+  keep it floating. In frame mode Hug and Float are states, not styles: the Bar style row
+  becomes Plate / Islands / M3 with a Bar state row (Auto / Hug / Float) beside it, and the
+  Islands style follows the same state, each island rising out of the band. Settings >
+  Appearance > Frame gains a row each for popups and notifications.
 
 ## [1.2.0] — 2026-09-20
 

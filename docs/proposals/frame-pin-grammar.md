@@ -32,7 +32,7 @@ Settings > Appearance > Frame gets one row per surface to override the default.
 | bar widget popup | click (`StyledPopup.pinnedOpen`, tray menus, Docker/Discord plugins) | released, as today | already pinned | close: swallow into the band, submerge |
 | notification | arrives (`Notifications.popupList`), emerging from its band | fused to the band on its edge (`*_right`, `*_left`; the centre positions stay released) | a **Pin** button, or a drag away from the band past a threshold: releases it and cancels its timeout - it persists. Unpin (the button, or a drag back that ends nearer the band than the pinned rest) fuses it back and restarts its clock | close (the x) or timeout: a released card lands first, then slides into the band. A drag toward the band is never stopped: the join forms with the approach, past the edge the card goes under, and let go there it slides the rest of the way in and closes. Away from the band the pull is elastic to a limit and springs back short of the threshold |
 | dock | reveal at the edge (unpinned) | fused: reveals out of the band and hides back into it | the dock's pin: released, reserves its edge (`DockReservation`) | unpin: lands, fuses; then hides into the band when the pointer leaves |
-| bar | always on | Hug style: fused to the hairline band on its edge while the monitor's active workspace holds no window; released - lifted by the compositor's gap, inset from the side bands by the same, corners rounding with the lift - once a window is there (`FrameGeometry.barAttachedFor`; `appearance.frame.bar` "auto"/"attached"/"floating" overrides); other styles: islands | `bar togglePin` over IPC (`GlobalStates.barPinned`): pinned is released whatever the workspace holds; unpin returns to the workspace rule | released, the bar reserves its lift as well (the dock's flip rule: once per state change, on the compositor's own animation), so windows make room and the island has its gap on every side; bar popups fuse to the plate's inner edge wherever the lift put it; auto-hide in frame mode is still a split (out of scope, frame-one-surface.md §7) |
+| bar | always on | Plate style: **Hug** (fused to the hairline band on its edge) while a window is on the monitor's active workspace - the frame is the border around the windows - and **Float** (lifted by the compositor's gap from the band's inner edge, inset from the side bands by the same, corners rounding with the lift) over an empty workspace (`FrameGeometry.barAttachedFor`; the Bar state row / `appearance.frame.bar` "auto"/"attached"/"floating"). Islands follow the same state, each on its own; M3 only floats | `bar togglePin` over IPC (`GlobalStates.barPinned`): pinned is released whatever the workspace holds; unpin returns to the workspace rule | released, the bar reserves its lift as well (the dock's flip rule: once per state change, on the compositor's own animation), so windows make room and the island has its gap on every side; bar popups fuse to the plate's inner edge wherever the lift put it; auto-hide in frame mode is still a split (out of scope, frame-one-surface.md §7) |
 
 Two things the table changes on purpose:
 
@@ -191,6 +191,19 @@ translucent against the band, it is the band.
   what is left lighter under the bar is its own widget-group pills. Cost: a screen-sized layer
   per frame surface, re-rendered while a join moves; a record's own alpha is not honoured inside
   it (a floating pill the frame paints at rest takes the frame's alpha).
+- **Auto, the other way round; the shadow; the styles** (review of the live build). "Bar is set
+  to hug but floats when there are windows - auto should be the opposite": with windows the
+  frame is their border and the bar hugs it, over an empty workspace the bar is an island -
+  `barAttachedFor` turned. The bar's own drop shadow lives in the bar's window, above the frame's
+  surface, and fell across the frame's plate and the fused popup below it - the rest of the seam;
+  it stands down with the plate. And Hug and Float are STATES now, not styles: in frame mode
+  (the starter going forward; the older layouts are on their way out) the Bar style row offers
+  Plate, Islands and M3, a Bar state row beside it picks Auto / Hug / Float (moved here from
+  Appearance > Frame), Islands (2) is out of the row until its rework, Float (1) reads as the
+  plate. The Islands style follows the same state: hugging, each island reaches up to the band's
+  inner edge, band-side corners square, the frame's colour, no border; floating, as it was. The
+  islands move on the tween, not the fluid spring, and the frame does not paint them yet - a
+  per-island join with its own meniscus is the next slice.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
