@@ -863,8 +863,13 @@ Singleton {
     sizes: QtObject {
         property real baseBarHeight: 40
         // Float (1) and Float Islands (4) both hold their plates a gap off the
-        // edge and the windows, inside the surface.
-        property real barHeight: (Config.options.bar.cornerStyle === 1 || Config.options.bar.cornerStyle === 4) ?
+        // edge and the windows, inside the surface - except Islands in frame
+        // mode, where each island is a piece of the Hug plate on the bar's
+        // join (frame-pin-grammar.md, the bar row): the plate's height, the
+        // plate's zone, the lift carried by the join rather than by margins.
+        readonly property bool frameIslands: (Config?.options.appearance.frame.enable ?? false)
+            && Config?.options.bar.cornerStyle === 4
+        property real barHeight: ((Config.options.bar.cornerStyle === 1 || Config.options.bar.cornerStyle === 4) && !root.sizes.frameIslands) ?
             (baseBarHeight + root.sizes.hyprlandGapsOut * 2) : baseBarHeight
         // M3E bar widget-pill geometry: the pill is inset from the bar by
         // barPillMargin top and bottom, giving barPillHeight. Shared by BarGroup
@@ -965,7 +970,7 @@ Singleton {
         // edge. Bar.qml and FrameGeometry both read these; a second copy of
         // either expression is a copy that drifts.
         property real barReservedHeight: root.sizes.baseBarHeight
-            + ((Config?.options.bar.cornerStyle === 1 || Config?.options.bar.cornerStyle === 4) ? root.sizes.hyprlandGapsOut : 0)
+            + ((Config?.options.bar.cornerStyle === 1 || Config?.options.bar.cornerStyle === 4) && !root.sizes.frameIslands ? root.sizes.hyprlandGapsOut : 0)
         property real barExclusiveZone: root.sizes.barReservedHeight
             + ((Config?.options.bar.bottom ?? false) ? root.sizes.barBottomMargin : root.sizes.barDetachMargin)
         property real barSurfaceHeight: root.sizes.barHeight

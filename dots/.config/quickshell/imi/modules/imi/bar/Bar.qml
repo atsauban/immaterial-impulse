@@ -253,7 +253,10 @@ Scope {
                     travel: Appearance.sizes.hyprlandGapsOut
                     bandInset: barRoot.bandInsetHere
                     color: FrameGeometry.color
-                    active: FrameGeometry.paintsBarPlate && Config.options.bar.showBackground && !barContent.centerOnly
+                    // The plate (Hug) or the islands: the same join, the
+                    // islands being pieces of the plate (frame-pin-grammar.md).
+                    active: FrameGeometry.enabled && (FrameGeometry.barCovers || FrameGeometry.barIslands)
+                        && Config.options.bar.showBackground && !barContent.centerOnly
                     paintsLocally: false
                     paintsAtRest: true
                 }
@@ -272,8 +275,28 @@ Scope {
                     ? Appearance.rounding.windowRounding * Math.min(1, barJoin.lift / barJoin.travel) : 0
                 readonly property real releaseZoneExtra: barJoin.active
                     ? DockGeometry.splitZoneExtra(barJoin.travel + Math.max(0, barRoot.bandInsetHere), !barRoot.joinAttached, barJoin.lift) : 0
+                // How far a plate reaches past the band's inner edge, and
+                // the neck it may carry for it (see slideHold below).
+                function plateReach(at, height) {
+                    return Config.options.bar.bottom
+                        ? (barRoot.height - barRoot.bandInsetHere) - at.y
+                        : at.y + height - barRoot.bandInsetHere;
+                }
+                // The last stretch of the slide over which the neck lets go:
+                // the strip a plate AT the band's surface blended into was a
+                // dozen rows (the blend radius over four), so sixteen covers
+                // it - and a plate at rest reaches further than that past the
+                // band (a bar 40 tall, a band 2: 38), which is what keeps the
+                // neck whole at rest. Measured against the meniscus (49) it
+                // never was.
+                readonly property real slideHoldReach: 16
+                function screenOriginY() {
+                    return Config.options.bar.bottom
+                        ? barRoot.screen.height - barRoot.height - Appearance.sizes.barSurfaceMargin
+                        : Appearance.sizes.barSurfaceMargin;
+                }
                 readonly property var frameJoinRecord: {
-                    if (!barJoin.active || !barJoin.painting || !barRoot.screen) return null;
+                    if (!barJoin.active || !barJoin.painting || !barRoot.screen || !FrameGeometry.barCovers) return null;
                     const p = barContent.backgroundItem;
                     // Read so a move re-evaluates this: the content's place in
                     // the window (the slide, the lift, the side insets) and
@@ -296,7 +319,7 @@ Scope {
                     const reach = bottom
                         ? (barRoot.height - barRoot.bandInsetHere) - at.y
                         : at.y + p.height - barRoot.bandInsetHere;
-                    const slideHold = Math.max(0, Math.min(1, reach / Math.max(1, barJoin.meniscus)));
+                    const slideHold = Math.max(0, Math.min(1, reach / barRoot.slideHoldReach));
                     return {
                         edge: FrameGeometry.barEdge,
                         plate: { x: at.x, y: at.y + oy, width: p.width, height: p.height },
@@ -315,15 +338,61 @@ Scope {
                     GlobalStates.publishFrameJoin(name, "bar", record);
                 }
                 onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
+                // The islands (frame-pin-grammar.md, the bar row): each a piece
+                // of the plate on the same join, published as its own record
+                // so the frame paints it fused to the band with its meniscus or
+                // lifted off it. Hugging, the outer islands hug their corner
+                // too: the left one runs from the screen's left edge, the right
+                // one to the right edge, and the corner on the side is square
+                // like the plate's; the inner corners stay round. The radius of
+                // a band-side or side corner rounds with the lift as the
+                // plate's does.
+                readonly property var frameIslandRecords: {
+                    const out = { "barIsland:left": null, "barIsland:center": null, "barIsland:right": null };
+                    if (!barJoin.active || !barJoin.painting || !barRoot.screen || !FrameGeometry.barIslands) return out;
+                    barContent.x; barContent.y; barContent.width; barContent.height;
+                    const bottom = Config.options.bar.bottom;
+                    const oy = barRoot.screenOriginY();
+                    const R = Appearance.rounding.windowRounding, r = barRoot.plateRadius;
+                    for (const isl of barContent.frameIslandItems) {
+                        if (!isl || !isl.visible) continue;
+                        isl.x; isl.y; isl.width; isl.height;
+                        const at = isl.mapToItem(null, 0, 0);
+                        const section = isl.sectionName;
+                        const slideHold = Math.max(0, Math.min(1, barRoot.plateReach(at, isl.height) / barRoot.slideHoldReach));
+                        const sideL = section === "left" ? r : R, sideR = section === "right" ? r : R;
+                        out["barIsland:" + section] = {
+                            edge: FrameGeometry.barEdge,
+                            section: section,
+                            plate: { x: at.x, y: at.y + oy, width: isl.width, height: isl.height },
+                            radii: bottom
+                                ? { topLeft: sideL, topRight: sideR, bottomRight: r, bottomLeft: r }
+                                : { topLeft: r, topRight: r, bottomRight: sideR, bottomLeft: sideL },
+                            gap: barJoin.state.gap, neck: barJoin.state.neck * slideHold, bulge: barJoin.state.bulge * slideHold,
+                            meniscus: barJoin.meniscus, blendPerPixel: barJoin.blendPerPixel,
+                            climbFraction: barJoin.climbFraction, color: FrameGeometry.color,
+                            zoneExtra: barRoot.releaseZoneExtra
+                        };
+                    }
+                    return out;
+                }
+                function publishFrameIslands(records) {
+                    const name = barRoot.screen?.name ?? "";
+                    if (!name) return;
+                    for (const key in records) GlobalStates.publishFrameJoin(name, key, records[key]);
+                }
+                onFrameIslandRecordsChanged: publishFrameIslands(frameIslandRecords)
 
                 // Include in focus grab
                 Component.onCompleted: {
                     GlobalFocusGrab.addPersistent(barRoot);
                     publishFrameJoin(frameJoinRecord);
+                    publishFrameIslands(frameIslandRecords);
                 }
                 Component.onDestruction: {
                     GlobalFocusGrab.removePersistent(barRoot);
                     publishFrameJoin(null);
+                    publishFrameIslands({ "barIsland:left": null, "barIsland:center": null, "barIsland:right": null });
                 }
 
                 // Drag files over the bar to pop the drop shelf out below it -
@@ -440,7 +509,6 @@ Scope {
                         implicitHeight: Appearance.sizes.barHeight
                         plateOnFrame: barJoin.drawsPlate && !barContent.centerOnly && Config.options.bar.showBackground
                         plateRadius: barRoot.plateRadius
-                        frameHug: FrameGeometry.enabled && barRoot.joinAttached
                         anchors {
                             right: parent.right
                             left: parent.left
@@ -522,7 +590,11 @@ Scope {
                             bottom: undefined
                         }
                         height: Appearance.rounding.screenRounding
-                        active: showBarBackground && Config.options.bar.cornerStyle === 0 && !barContent.centerOnly// Hug
+                        // Hug - and the frame's islands, whose outer islands hug
+                        // their corner the same way (each fillet only under a
+                        // populated island).
+                        active: showBarBackground && !barContent.centerOnly
+                            && (Config.options.bar.cornerStyle === 0 || (FrameGeometry.enabled && FrameGeometry.barIslands))
                         // The hug is the FUSED look: these fillets bridge the
                         // plate into the screen's sides. They ride the content
                         // down with the lift and would sit in the island's gap
@@ -550,6 +622,7 @@ Scope {
                             implicitHeight: Appearance.rounding.screenRounding
                             RoundCorner {
                                 id: leftCorner
+                                visible: !FrameGeometry.barIslands || (barContent.frameIslandItems[0]?.visible ?? false)
                                 anchors {
                                     top: parent.top
                                     bottom: parent.bottom
@@ -570,6 +643,7 @@ Scope {
                             }
                             RoundCorner {
                                 id: rightCorner
+                                visible: !FrameGeometry.barIslands || (barContent.frameIslandItems[2]?.visible ?? false)
                                 anchors {
                                     right: parent.right
                                     top: !Config.options.bar.bottom ? parent.top : undefined

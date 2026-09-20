@@ -22,7 +22,13 @@ Item {
     // with the groups inside them exactly as Float draws them. The full-width
     // plate goes transparent and three islands take its place.
     readonly property bool isFloatIslands: Config.options.bar.cornerStyle === 4
-    readonly property bool floatPlate: Config.options.bar.cornerStyle === 1 || root.isFloatIslands
+    // Islands in frame mode are pieces of the Hug plate on the bar's join
+    // (Bar.qml publishes one record per island, the frame paints them): no
+    // gap of their own around the content, the join carries the lift.
+    readonly property bool frameIslands: FrameGeometry.enabled && root.isFloatIslands
+    readonly property bool floatPlate: Config.options.bar.cornerStyle === 1 || (root.isFloatIslands && !root.frameIslands)
+    // The islands, for the bar's window to publish (section, populated, rect).
+    readonly property list<Item> frameIslandItems: [leftIsland, centerIsland, rightIsland]
     readonly property real centerPillX: centerPill.x
     readonly property real centerPillWidth: centerPill.width
     property bool suppressDockerForMemoryTest: false
@@ -48,10 +54,6 @@ Item {
     // with the lift.
     property bool plateOnFrame: false
     property real plateRadius: 0
-    // The frame's Hug state for this bar (Bar.qml: FrameGeometry.barAttachedFor)
-    // - what the Islands style follows when the frame paints no plate for it:
-    // hugging, each island rises out of the band; floating, each is its own.
-    property bool frameHug: false
     readonly property Item centerPillItem: centerPill
     readonly property bool centerPillPainted: centerPill.visible
 
@@ -237,50 +239,26 @@ Item {
         // the container's edge (hyprlandGapsOut off the screen) exactly as
         // Float's whole plate does.
         readonly property real islandPad: Appearance.spacing.space125
-        // In frame mode the islands follow the bar's Hug/Float state
-        // (frame-pin-grammar.md, the bar row): hugging, each island reaches
-        // up to the band's inner edge with its band-side corners square, the
-        // frame's colour and no border - a piece of the frame rising out of
-        // the band, like the Hug plate; floating, the island as it is. The
-        // reach is what lies between this container and the band: the
-        // plate's gap, the padding, less the band itself.
-        readonly property bool islandsHug: root.frameHug && root.isFloatIslands
-        readonly property real islandReach: Math.max(0, (root.floatPlate ? Appearance.sizes.hyprlandGapsOut : 0)
-            + root.barPadding - FrameGeometry.bandExtent(Config.options.bar.bottom ? "bottom" : "top"))
         component Island: Rectangle {
             required property bool populated
             required property string sectionName
-            // While a widget's popup is fused to this island the frame paints
-            // it (BarPopupOverlay publishes "barIsland" with the section): the
-            // island stands down like the plate does, and its shadow with it.
-            readonly property bool onFrame: (GlobalStates.frameJoins[root.screen?.name ?? ""]?.barIsland?.section ?? "") === sectionName
+            // In frame mode the frame paints this island from the record the
+            // bar's window publishes ("barIsland:<section>", Bar.qml) - fused
+            // to the band with its meniscus, or lifted off it - and the
+            // island stands down like the plate does, its shadow with it.
+            readonly property bool onFrame: (GlobalStates.frameJoins[root.screen?.name ?? ""]?.["barIsland:" + sectionName] ?? null) !== null
             opacity: onFrame ? 0 : 1
-            readonly property bool hugsTop: contentContainer.islandsHug && !Config.options.bar.bottom
-            readonly property bool hugsBottom: contentContainer.islandsHug && Config.options.bar.bottom
             visible: root.isFloatIslands && Config.options.bar.showBackground && !root.centerOnly && populated
             anchors.top: parent.top
             anchors.bottom: parent.bottom
-            anchors.topMargin: hugsTop ? -contentContainer.islandReach : 0
-            anchors.bottomMargin: hugsBottom ? -contentContainer.islandReach : 0
-            color: contentContainer.islandsHug ? FrameGeometry.color : Appearance.colors.colBarBackground
+            color: Appearance.colors.colBarBackground
             radius: Appearance.rounding.windowRounding
-            topLeftRadius: hugsTop ? 0 : radius
-            topRightRadius: hugsTop ? 0 : radius
-            bottomLeftRadius: hugsBottom ? 0 : radius
-            bottomRightRadius: hugsBottom ? 0 : radius
-            border.width: contentContainer.islandsHug ? 0 : 1
+            border.width: 1
             border.color: Appearance.colors.colLayer0Border
-            Behavior on anchors.topMargin { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
-            Behavior on anchors.bottomMargin { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
-            Behavior on topLeftRadius { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
-            Behavior on topRightRadius { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
-            Behavior on bottomLeftRadius { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
-            Behavior on bottomRightRadius { animation: Appearance.animation.elementMoveFast.numberAnimation.createObject(this) }
-            Behavior on color { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }
         }
         component IslandShadow: Loader {
             required property Item island
-            active: Config.options.bar.shadow && island.visible && !contentContainer.islandsHug && !island.onFrame
+            active: Config.options.bar.shadow && island.visible && !island.onFrame
             anchors.fill: island
             sourceComponent: StyledRectangularShadow {
                 anchors.fill: undefined

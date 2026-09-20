@@ -565,13 +565,11 @@ Scope {
             // the dock's under "barPopup"); this card stands down while it
             // does and keeps the content, the input and the hover.
             readonly property bool joinsFrame: FrameGeometry.popupsJoinBar && !overlayWindow.barVertical
-            // Islands: the card fuses to its section's island. The island is
-            // the narrower body, so IT is the drop and the card's near edge is
-            // the pond: the frame paints the island (record "barIsland", its
-            // neck and fillets onto the card) and the card as a plain rounded
-            // plate (its own record, no neck - fillets at a card wider than
-            // its island would hang in the air). The bar's island stands down
-            // while the frame paints it (BarContent, by section).
+            // Islands: the card fuses to its section's island - the bar's
+            // record "barIsland:<section>", painted by the frame at rest and
+            // on the move like the plate - and the card is the drop as it is
+            // on the plate; the record names the section so the frame joins
+            // the card to that island's edge.
             readonly property bool islandsMode: FrameGeometry.barIslands && !FrameGeometry.barCovers
             function islandFor(target) {
                 let node = target;
@@ -582,14 +580,8 @@ Scope {
                 return null;
             }
             readonly property Item island: overlayWindow.islandsMode ? overlayWindow.islandFor(overlayWindow.current?.hoverTarget ?? null) : null
-            // Which of the two is the drop: the narrower one. A wide island
-            // under a narrow card is the pond, and the card's fillets climb
-            // onto it as onto the plate; an island narrower than its card is
-            // the drop, and its fillets climb onto the card (measured: a card
-            // under a wider island left a wedge at each of its top corners
-            // with the neck on the island).
-            readonly property bool islandDrops: overlayWindow.islandsMode && overlayWindow.island !== null
-                && overlayWindow.island.width < card.width
+            readonly property string islandSection: overlayWindow.island?.sectionName ?? ""
+            onIslandSectionChanged: overlayWindow.takeBarInner()
             // The bar's plate is itself a join on the frame and may be lifted
             // off the band (frame-pin-grammar.md, the bar row) or slid out by
             // auto-hide; a popup fuses to the plate's inner edge wherever that
@@ -603,12 +595,10 @@ Scope {
             // from it. Frame.qml takes the map up the same way.
             property real barInner: overlayWindow.barThickness
             function takeBarInner() {
-                const b = GlobalStates.frameJoins[overlayWindow.modelData?.name ?? ""]?.bar ?? null;
-                // No bar record: islands sit the compositor's gap inside the
-                // bar, so their inner edge is the bar's thickness less the gap.
-                const islandInner = overlayWindow.islandsMode
-                    ? Appearance.sizes.barHeight - Appearance.sizes.hyprlandGapsOut : overlayWindow.barThickness;
-                overlayWindow.barInner = !b ? islandInner
+                const joins = GlobalStates.frameJoins[overlayWindow.modelData?.name ?? ""] ?? null;
+                // The plate's record, or the hovered section's island's.
+                const b = joins?.bar ?? (overlayWindow.islandsMode ? joins?.["barIsland:" + overlayWindow.islandSection] ?? null : null);
+                overlayWindow.barInner = !b ? overlayWindow.barThickness
                     : overlayWindow.barEdge === "bottom" ? overlayWindow.height - b.plate.y : b.plate.y + b.plate.height;
             }
             Connections {
@@ -647,11 +637,11 @@ Scope {
                 if (!cardJoin.active || !cardJoin.painting || !overlayWindow.modelData) return null;
                 return {
                     edge: overlayWindow.barEdge,
+                    section: overlayWindow.islandSection,
                     plate: { x: card.x, y: card.y, width: card.width, height: card.height },
                     radii: { topLeft: card.radius, topRight: card.radius,
                              bottomRight: card.radius, bottomLeft: card.radius },
-                    gap: cardJoin.state.gap, neck: overlayWindow.islandDrops ? 0 : cardJoin.state.neck,
-                    bulge: overlayWindow.islandDrops ? 0 : cardJoin.state.bulge,
+                    gap: cardJoin.state.gap, neck: cardJoin.state.neck, bulge: cardJoin.state.bulge,
                     meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
                     climbFraction: cardJoin.climbFraction, color: overlayWindow.platePaint
                 };
@@ -662,46 +652,11 @@ Scope {
                 GlobalStates.publishFrameJoin(name, "barPopup", record);
             }
             onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
-            // The island, as the frame paints it while the card is up: its
-            // rect in screen coordinates (the bar's window sits at the screen
-            // edge less its margin), its own corners, the card join's gap and
-            // neck - the meniscus is the island's, onto the card.
-            readonly property var frameIslandRecord: {
-                const isl = overlayWindow.island;
-                if (!isl || !cardJoin.active || !cardJoin.painting || !overlayWindow.modelData) return null;
-                isl.x; isl.y; isl.width; isl.height;
-                const at = isl.mapToItem(null, 0, 0);
-                const barWindowHeight = isl.QsWindow?.window?.height ?? 0;
-                const oy = overlayWindow.barEdge === "bottom"
-                    ? overlayWindow.height - barWindowHeight - Appearance.sizes.barSurfaceMargin
-                    : Appearance.sizes.barSurfaceMargin;
-                return {
-                    edge: overlayWindow.barEdge === "bottom" ? "top" : "bottom",
-                    section: isl.sectionName ?? "",
-                    plate: { x: at.x, y: at.y + oy, width: isl.width, height: isl.height },
-                    radii: { topLeft: isl.topLeftRadius, topRight: isl.topRightRadius,
-                             bottomRight: isl.bottomRightRadius, bottomLeft: isl.bottomLeftRadius },
-                    gap: cardJoin.state.gap, neck: overlayWindow.islandDrops ? cardJoin.state.neck : 0,
-                    bulge: overlayWindow.islandDrops ? cardJoin.state.bulge : 0,
-                    meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
-                    climbFraction: cardJoin.climbFraction, color: FrameGeometry.color
-                };
-            }
-            function publishFrameIsland(record) {
-                const name = overlayWindow.modelData?.name ?? "";
-                if (!name) return;
-                GlobalStates.publishFrameJoin(name, "barIsland", record);
-            }
-            onFrameIslandRecordChanged: publishFrameIsland(frameIslandRecord)
             Component.onCompleted: {
                 overlayWindow.takeBarInner();
                 publishFrameJoin(frameJoinRecord);
-                publishFrameIsland(frameIslandRecord);
             }
-            Component.onDestruction: {
-                publishFrameJoin(null);
-                publishFrameIsland(null);
-            }
+            Component.onDestruction: publishFrameJoin(null)
 
             SequentialAnimation {
                 id: contentEnter

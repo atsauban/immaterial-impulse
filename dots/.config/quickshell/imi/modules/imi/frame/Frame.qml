@@ -248,12 +248,12 @@ Scope {
                 function joinBandEdgeFor(key, edge) {
                     const b = surface.barRecord;
                     if (key === "barPopup" && b && b.edge === edge) return surface.barInnerEdge;
-                    // Islands: the popup's band is its section's island, and
-                    // the island's band is the popup's near edge - the two
-                    // records name each other (BarPopupOverlay publishes both).
-                    const isl = surface.joins.barIsland ?? null, pop = surface.joins.barPopup ?? null;
-                    if (key === "barPopup" && isl) return edge === "bottom" ? isl.plate.y : isl.plate.y + isl.plate.height;
-                    if (key === "barIsland" && pop) return edge === "bottom" ? pop.plate.y : pop.plate.y + pop.plate.height;
+                    // Islands: the popup's band is its section's island (the
+                    // popup's record names the section; Bar.qml publishes the
+                    // islands' records).
+                    const pop = surface.joins.barPopup ?? null;
+                    const isl = key === "barPopup" && pop && pop.section ? (surface.joins["barIsland:" + pop.section] ?? null) : null;
+                    if (isl) return edge === "bottom" ? isl.plate.y : isl.plate.y + isl.plate.height;
                     const band = surface.bandEdgeFor(edge);
                     if (key === "bar" && b && b.edge === edge)
                         return edge === "bottom" ? Math.max(band, surface.barInnerEdge) : Math.min(band, surface.barInnerEdge);
@@ -297,11 +297,11 @@ Scope {
                     readonly property string edge: painter.record?.edge ?? "bottom"
                     // Inside paintLayer a ShaderEffect follows its own geometry
                     // again (measured: a popup's field rode its lift with no
-                    // pinned box), and these two keys' band edge moves with the
-                    // lift - a pinned strip would remake them every frame - so
-                    // they take the plate's own box, which stops at the band's
-                    // edge and so never fills the band side.
-                    readonly property bool pinned: painter.key !== "barPopup" && painter.key !== "barIsland"
+                    // pinned box), and the popup's band edge moves with the
+                    // bar's lift - a pinned strip would remake it every frame -
+                    // so it takes the plate's own box, which stops at the
+                    // band's edge and so never fills the band side.
+                    readonly property bool pinned: painter.key !== "barPopup"
                     readonly property rect strip: painter.pinned ? surface.joinStripFor(painter.edge, painter.key) : Qt.rect(0, 0, 0, 0)
                     readonly property var field: fieldLoader.item
                     readonly property Instantiator pool: outlinePool
