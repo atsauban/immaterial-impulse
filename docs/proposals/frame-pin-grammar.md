@@ -300,6 +300,15 @@ translucent against the band, it is the band.
   position outside the card (it would paint past the plate's body as the card shrinks - the
   clip is load-bearing), or a snapshot (`grabToImage`) of it, which costs a readback per
   takeover for the same picture.
+- **The height morphs across a takeover** (footage: "flickering/flashing when moving between
+  widget popups"). The card's open height was assigned at retarget, so a shorter popup taking
+  over lost the card's bottom third in one frame (weather to calendar: 324 to 216 with no frame
+  between, traced) and the blur behind that band snapped away with it - the flash. A Behavior on
+  `openHeight` on the width's tier, enabled only while an outgoing tree is up: an entrance keeps
+  its unroll from the parked square (no outgoing tree there), a content-driven card keeps
+  following, the exit's collapse rides the driver. Traced after: x, width and height run the
+  same curve together (431 to 216 over the tier). `morphing` counts it, so the focus grab still
+  waits for the card to settle.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
