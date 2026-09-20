@@ -170,6 +170,27 @@ translucent against the band, it is the band.
   nothing once the bar had hidden) - a `barPopup` record now joins the bar plate's inner
   edge (`joinBandEdgeFor`), the overlay reads the same edge off the bar's record
   (`barInner`), and the bar holds while its popup is up (`mustShow`).
+- **Where the lift is measured from** (footage, a pointer held on row 0): the released plate
+  sits the gap in from the band's INNER edge - as the windows do from the side bands - so the
+  content's offset is band + lift and the zone grows by the same; measured from the screen
+  edge, a 5 px band had the "released" plate resting straight on the band. And the auto-hide
+  reveal strip has to reach the screen edge whatever the lift: begun at the lifted plate it
+  left rows 0..gap outside, and a pointer there revealed the bar, fell out of the strip as the
+  plate lifted, and hid it again, at 5 Hz. The sandbox did not flap with the same code
+  (its default `hoverRegionWidth` is wider than 2) - a control that passes on a different
+  setting is not a control.
+- **One layer, one alpha** ("change the bar color/opacity to see it"). The frame's paints overlap
+  by design - a popup's field fills its band side, which is the bar's plate the bar's own field
+  paints too, and a fused plate reaches two rows into its band so a lift's first pixels stay
+  seamless - and with a translucent frame colour every overlap doubled: the bar under an open
+  popup read 22 where the popup read 37. Painted straight onto the surface there is no seamless
+  translucent join between two shapes: an overlap darkens, a gap or an abutting antialiased edge
+  lightens. So while the colour is translucent the bands and the fields paint OPAQUE into one
+  offscreen layer (`Frame.qml paintLayer`) blended once at the colour's alpha; overlaps heal and
+  a neighbour covers an edge's ramp. Measured after: both plates 37/28/28 across the junction,
+  what is left lighter under the bar is its own widget-group pills. Cost: a screen-sized layer
+  per frame surface, re-rendered while a join moves; a record's own alpha is not honoured inside
+  it (a floating pill the frame paints at rest takes the frame's alpha).
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
