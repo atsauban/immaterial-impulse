@@ -257,15 +257,21 @@ Scope {
                     paintsLocally: false
                     paintsAtRest: true
                 }
-                // What the content carries for the join: the lift off the
-                // band along the edge's normal, and the same in from each
-                // side band (the island's gap; nothing while fused).
-                readonly property real plateLift: barJoin.active ? barJoin.lift : 0
+                // What the content carries for the join. Fused, the plate
+                // starts at the screen edge and covers the band; released,
+                // it sits the gap in from the band's INNER edge, like the
+                // windows do from the side bands - so the content's offset
+                // is the band plus the lift, scaled along the lift so the
+                // motion is one run (a 5 px band put a plate lifted 5 px
+                // straight onto the band, no gap - seen live). The side
+                // insets measure from the screen edge already.
+                readonly property real plateLift: barJoin.active && barJoin.travel > 0
+                    ? barJoin.lift * (1 + Math.max(0, barRoot.bandInsetHere) / barJoin.travel) : 0
                 readonly property real plateSideInset: barJoin.active ? FrameGeometry.bandExtent("left") + barJoin.lift : 0
                 readonly property real plateRadius: barJoin.active && barJoin.travel > 0
                     ? Appearance.rounding.windowRounding * Math.min(1, barJoin.lift / barJoin.travel) : 0
                 readonly property real releaseZoneExtra: barJoin.active
-                    ? DockGeometry.splitZoneExtra(barJoin.travel, !barRoot.joinAttached, barJoin.lift) : 0
+                    ? DockGeometry.splitZoneExtra(barJoin.travel + Math.max(0, barRoot.bandInsetHere), !barRoot.joinAttached, barJoin.lift) : 0
                 readonly property var frameJoinRecord: {
                     if (!barJoin.active || !barJoin.painting || !barRoot.screen) return null;
                     const p = barContent.backgroundItem;
@@ -385,8 +391,14 @@ Scope {
                         // outside the strip the moment it appeared, and hid it
                         // again - a reveal/hide oscillation for as long as the
                         // pointer stayed on the edge.
-                        readonly property real rawTop: barContent.y - reveal - Appearance.sizes.barDetachInset
-                        readonly property real rawBottom: barContent.y + barContent.height + reveal
+                        //
+                        // The lift counts the same way: a released plate sits
+                        // a gap in from the edge, and a strip that began at the
+                        // plate left rows 0..gap outside - a pointer held at the
+                        // very top revealed the bar, fell out of the strip as the
+                        // plate lifted, and hid it again, at 5 Hz (footage).
+                        readonly property real rawTop: barContent.y - reveal - Appearance.sizes.barDetachInset - barRoot.plateLift
+                        readonly property real rawBottom: barContent.y + barContent.height + reveal + barRoot.plateLift
 
                         x: 0
                         width: parent.width
