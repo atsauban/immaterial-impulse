@@ -325,10 +325,15 @@ Scope {
                     // lifted, and its still-forming neck hung past the plate's
                     // corner for those frames (footage).
                     const span = overlayWindow.joinSpan();
+                    const screenLo = lo, screenHi = hi;
                     if (span) {
                         lo = Math.max(lo, span.min);
                         hi = Math.min(hi, span.max - cardWidth);
-                        if (hi < lo) lo = hi = (span.min + span.max - cardWidth) / 2;
+                        // A card wider than the stretch is centred on it - and
+                        // the screen still bounds it: centred on a corner
+                        // island, the Privacy card sat flush with the screen's
+                        // edge (seen live).
+                        if (hi < lo) lo = hi = Math.max(screenLo, Math.min((span.min + span.max - cardWidth) / 2, screenHi));
                     }
                     card.alongBar = Math.max(lo, Math.min(base, hi));
                 }

@@ -510,7 +510,7 @@ class FrameModeContract(unittest.TestCase):
         # corner radii, and carries no neck where it overhangs a narrower
         # island (the span is taken up with barInner, never bound).
         self.assertIn("const span = overlayWindow.joinSpan();", overlay)
-        self.assertIn("if (hi < lo) lo = hi = (span.min + span.max - cardWidth) / 2;", overlay)
+        self.assertIn("if (hi < lo) lo = hi = Math.max(screenLo, Math.min((span.min + span.max - cardWidth) / 2, screenHi));", overlay, "centred on its island, still inside the screen")
         self.assertIn("neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck * grown,", overlay, "the fillets are as tall as the card")
         self.assertIn("if (card.height <= 3) return null;", overlay, "no stalk under the bar for a collapsed card")
         self.assertIn("if (!was || was.min !== span.min || was.max !== span.max) overlayWindow.plateSpan = span;", overlay)
