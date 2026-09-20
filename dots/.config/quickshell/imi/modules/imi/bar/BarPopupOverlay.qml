@@ -285,7 +285,20 @@ Scope {
                     card.alongBar = Math.max(margin, Math.min(base, overlayWindow.height - cardHeight - margin - 15));
                 } else {
                     const base = target.QsWindow.mapFromItem(target, (target.width - cardWidth) / 2, 0).x;
-                    card.alongBar = Math.max(margin, Math.min(base, overlayWindow.width - cardWidth - margin - 10));
+                    let lo = margin, hi = overlayWindow.width - cardWidth - margin - 10;
+                    // A fused card sits on the FLAT stretch of its plate's inner
+                    // edge, between the corner radii: clamped to the screen it
+                    // ran past a floating plate's rounded corner, and its
+                    // fillet there had nothing to climb onto (seen live, the
+                    // right end of the bar). A card wider than the stretch is
+                    // centred on it.
+                    const span = overlayWindow.joinSpan();
+                    if (span && overlayWindow.wantsFused) {
+                        lo = Math.max(lo, span.min);
+                        hi = Math.min(hi, span.max - cardWidth);
+                        if (hi < lo) lo = hi = (span.min + span.max - cardWidth) / 2;
+                    }
+                    card.alongBar = Math.max(lo, Math.min(base, hi));
                 }
 
                 card.width = cardWidth;
@@ -582,6 +595,23 @@ Scope {
             readonly property Item island: overlayWindow.islandsMode ? overlayWindow.islandFor(overlayWindow.current?.hoverTarget ?? null) : null
             readonly property string islandSection: overlayWindow.island?.sectionName ?? ""
             onIslandSectionChanged: overlayWindow.takeBarInner()
+            // The flat stretch of the plate the card fuses to - the bar's plate
+            // or its section's island - between the inner-edge corner radii,
+            // in this window's x; null where nothing is joined. Taken up with
+            // barInner (below), never bound: this window publishes into the
+            // map it would read.
+            property var plateSpan: null
+            function joinSpan() { return overlayWindow.joinsFrame ? overlayWindow.plateSpan : null; }
+            // An island narrower than the card: the card sits centred on it
+            // and carries no neck - fillets at corners past the island's ends
+            // would climb onto nothing.
+            readonly property bool cardOverhangs: overlayWindow.plateSpan !== null
+                && (overlayWindow.plateSpan.max - overlayWindow.plateSpan.min) < card.width
+            // The plate moved (the bar's lift, its slide) or the card's state
+            // turned: place the card again on what it now joins.
+            onBarInnerChanged: if (overlayWindow.current) overlayWindow.retarget()
+            onPlateSpanChanged: if (overlayWindow.current) overlayWindow.retarget()
+            onWantsFusedChanged: if (overlayWindow.current) overlayWindow.retarget()
             // The bar's plate is itself a join on the frame and may be lifted
             // off the band (frame-pin-grammar.md, the bar row) or slid out by
             // auto-hide; a popup fuses to the plate's inner edge wherever that
@@ -600,6 +630,12 @@ Scope {
                 const b = joins?.bar ?? (overlayWindow.islandsMode ? joins?.["barIsland:" + overlayWindow.islandSection] ?? null : null);
                 overlayWindow.barInner = !b ? overlayWindow.barThickness
                     : overlayWindow.barEdge === "bottom" ? overlayWindow.height - b.plate.y : b.plate.y + b.plate.height;
+                if (!b) { overlayWindow.plateSpan = null; return; }
+                const bottom = overlayWindow.barEdge === "bottom";
+                const rl = bottom ? b.radii.topLeft : b.radii.bottomLeft, rr = bottom ? b.radii.topRight : b.radii.bottomRight;
+                const span = { min: b.plate.x + rl, max: b.plate.x + b.plate.width - rr };
+                const was = overlayWindow.plateSpan;
+                if (!was || was.min !== span.min || was.max !== span.max) overlayWindow.plateSpan = span;
             }
             Connections {
                 target: GlobalStates
@@ -641,7 +677,9 @@ Scope {
                     plate: { x: card.x, y: card.y, width: card.width, height: card.height },
                     radii: { topLeft: card.radius, topRight: card.radius,
                              bottomRight: card.radius, bottomLeft: card.radius },
-                    gap: cardJoin.state.gap, neck: cardJoin.state.neck, bulge: cardJoin.state.bulge,
+                    gap: cardJoin.state.gap,
+                    neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck,
+                    bulge: overlayWindow.cardOverhangs ? 0 : cardJoin.state.bulge,
                     meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
                     climbFraction: cardJoin.climbFraction, color: overlayWindow.platePaint
                 };

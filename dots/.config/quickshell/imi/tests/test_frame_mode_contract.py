@@ -498,6 +498,13 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn('const out = { "barIsland:left": null, "barIsland:center": null, "barIsland:right": null };', barWindow)
         self.assertIn("&& (FrameGeometry.barCovers || FrameGeometry.barIslands)", barWindow, "the plate or the islands: the same join")
         self.assertIn("section: overlayWindow.islandSection,", overlay)
+        # A fused card sits on the flat stretch of its plate, between the
+        # corner radii, and carries no neck where it overhangs a narrower
+        # island (the span is taken up with barInner, never bound).
+        self.assertIn("const span = overlayWindow.joinSpan();", overlay)
+        self.assertIn("if (hi < lo) lo = hi = (span.min + span.max - cardWidth) / 2;", overlay)
+        self.assertIn("neck: overlayWindow.cardOverhangs ? 0 : cardJoin.state.neck,", overlay)
+        self.assertIn("if (!was || was.min !== span.min || was.max !== span.max) overlayWindow.plateSpan = span;", overlay)
         self.assertIn('const isl = key === "barPopup" && pop && pop.section ? (surface.joins["barIsland:" + pop.section] ?? null) : null;', frame)
         self.assertNotIn("property bool pinned:", frame, "every field keeps its pinned strip (NVIDIA: the trap holds inside the layer)")
         self.assertIn("readonly property rect strip: surface.joinStripFor(painter.edge, painter.key)", frame)
