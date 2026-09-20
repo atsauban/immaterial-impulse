@@ -119,8 +119,4 @@ MouseArea {
             onDismissRequested: root.popupOpen = false
         }
     }
-
-
-}
-
 }
