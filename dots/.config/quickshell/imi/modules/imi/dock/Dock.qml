@@ -124,6 +124,8 @@ Scope {
             // fullscreen reaches the lift through the travel alone, while the
             // dock is hidden.
             readonly property bool joinAttached: !(FrameGeometry.enabled && root.pinned && !DockReservation.attached)
+            // The pin, for the reservation and the frame's option to read.
+            Binding { target: DockReservation; property: "pinned"; value: root.pinned }
             // The lift: the compositor's gap - the distance between "on the
             // band" and "a gap above it" - while the dock reserves its edge.
             // An unpinned dock never lifts (its hover sliver stays at the

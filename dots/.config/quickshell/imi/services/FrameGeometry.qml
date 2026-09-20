@@ -14,7 +14,7 @@ import "frame_geometry.js" as Geo
  * the screen-rounding fillet in the frame's colour. The dock is not part of
  * the frame: a pinned dock meets the band on its own edge - sitting on it as
  * a tab (`appearance.frame.dock` "attached") or a gap above it ("floating")
- * - and reads `dockAttached` and `thickness` from here to do so
+ * - and reads `dockAttachedFor(pinned)` and `thickness` from here to do so
  * (modules/imi/dock/DockReservation.qml). Off by default; a vertical bar is
  * not framed yet.
  */
@@ -50,10 +50,18 @@ Singleton {
     // inset islands inside the frame, not the frame.
     readonly property bool paintsBarPlate: root.enabled && root.barCovers
     readonly property real thickness: Geo.bandThickness(Config.options.appearance.frame.thickness)
-    // How a pinned dock meets the band on its edge: on it (a tab, the
-    // default) or floating a gap above it. Anything but "floating" is
-    // attached, so a hand-edited value cannot leave the dock nowhere.
-    readonly property bool dockAttached: String(Config.options.appearance.frame.dock ?? "attached") !== "floating"
+    // How the dock meets the band on its edge, given its pin
+    // (frame-pin-grammar.md: pinned means released, unpinned means fused).
+    // "auto" follows the pin; "attached" and "floating" force one look.
+    // Anything else attaches, so a hand-edited value cannot leave the dock
+    // nowhere. The pin itself lives with the dock (DockReservation.pinned);
+    // this authority reads no occupant.
+    readonly property string dockLook: String(Config.options.appearance.frame.dock ?? "auto")
+    function dockAttachedFor(pinned: bool): bool {
+        if (root.dockLook === "floating") return false;
+        if (root.dockLook === "auto") return !pinned;
+        return true;
+    }
     // Where windows start on each edge, which is the frame's own reach: a
     // covering bar's zone plus the compositor's gap on its edge, the band on
     // the other three.

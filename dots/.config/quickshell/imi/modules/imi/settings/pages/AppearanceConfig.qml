@@ -136,6 +136,7 @@ ContentPage {
                     currentValue: Config.options.appearance.frame.dock
                     onSelected: newValue => { Config.options.appearance.frame.dock = newValue; }
                     options: [
+                        { "displayName": Translation.tr("Auto"), "value": "auto" },
                         { "displayName": Translation.tr("Attached"), "value": "attached" },
                         { "displayName": Translation.tr("Floating"), "value": "floating" }
                     ]
@@ -144,7 +145,7 @@ ContentPage {
                         wrapMode: Text.WordWrap
                         font.pixelSize: Appearance.font.pixelSize.smaller
                         color: Appearance.colors.colSubtext
-                        text: Translation.tr("Sits on the frame's band as a tab, or floats a gap above it.")
+                        text: Translation.tr("Auto follows the dock's pin: pinned, it floats a gap above the frame's band; unpinned, it sits on the band as a tab. Attached or Floating force one look.")
                     }
                 }
                 ConfigSelectionArray {

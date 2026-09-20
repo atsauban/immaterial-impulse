@@ -24,7 +24,10 @@ Singleton {
     readonly property real zone: DockGeometry.exclusiveZone(
         Config.options?.dock.height ?? 60,
         Appearance.sizes.elevationMargin, Appearance.sizes.hyprlandGapsOut)
-    readonly property bool attached: FrameGeometry.enabled && FrameGeometry.dockAttached
+    // The dock's pin, written by the dock: the one occupant fact the join
+    // needs that no config holds.
+    property bool pinned: false
+    readonly property bool attached: FrameGeometry.enabled && FrameGeometry.dockAttachedFor(DockReservation.pinned)
     readonly property real frameOffset: DockGeometry.frameOffset(
         FrameGeometry.enabled, FrameGeometry.thickness, Appearance.sizes.hyprlandGapsOut)
 }

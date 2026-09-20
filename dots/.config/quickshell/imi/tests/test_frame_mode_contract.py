@@ -69,14 +69,20 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn("Geo.edgeInsets(root.barEdge, root.barThickness, root.thickness, root.gap, root.barCovers)", geo,
                       "a covering bar's edge is its zone plus the gap; every other edge is the band")
         self.assertNotRegex(appearance, r"dockExclusiveZone|dock_geometry", "Appearance is the layer everything builds on; it names no feature")
-        # How a pinned dock meets the band is the frame's option, read by the
-        # dock: on it as a tab (the default) or a gap above it. Anything but
-        # "floating" attaches, so a hand-edited value leaves the dock somewhere.
-        self.assertRegex(block, r'property string dock:\s*"attached"', "a pinned dock sits on the band by default")
-        self.assertIn('readonly property bool dockAttached: String(Config.options.appearance.frame.dock ?? "attached") !== "floating"', geo)
+        # How the dock meets the band is the frame's option given the PIN
+        # (frame-pin-grammar.md: pinned means released, unpinned means fused):
+        # "auto" follows the pin and is the shipped default, "attached" and
+        # "floating" force one look, anything else attaches so a hand-edited
+        # value leaves the dock somewhere. The pin is the dock's fact, written
+        # to DockReservation; the authority reads no occupant.
+        self.assertRegex(block, r'property string dock:\s*"auto"', "a fresh install follows the pin")
+        self.assertIn("function dockAttachedFor(pinned: bool): bool", geo)
+        self.assertIn('if (root.dockLook === "auto") return !pinned;', geo)
         reservation = _strip((ROOT / "modules/imi/dock/DockReservation.qml").read_text())
         self.assertIn("readonly property real zone: DockGeometry.exclusiveZone(", reservation)
-        self.assertIn("readonly property bool attached: FrameGeometry.enabled && FrameGeometry.dockAttached", reservation)
+        self.assertIn("readonly property bool attached: FrameGeometry.enabled && FrameGeometry.dockAttachedFor(DockReservation.pinned)", reservation)
+        self.assertIn('Binding { target: DockReservation; property: "pinned"; value: root.pinned }',
+                      _strip((ROOT / "modules/imi/dock/Dock.qml").read_text()))
         self.assertIn("readonly property real frameOffset: DockGeometry.frameOffset(", reservation)
         self.assertIn("FrameGeometry.enabled, FrameGeometry.thickness, Appearance.sizes.hyprlandGapsOut)", reservation)
         self.assertNotIn("FrameGeometry.dockAttached, FrameGeometry.thickness", reservation,
@@ -418,6 +424,7 @@ class FrameModeContract(unittest.TestCase):
         # The dock row: a labelled choice, shown only while both the frame
         # and the dock are on.
         self.assertIn("Config.options.appearance.frame.dock = newValue", page)
+        self.assertIn('{ "displayName": Translation.tr("Auto"), "value": "auto" }', page)
         self.assertIn('{ "displayName": Translation.tr("Attached"), "value": "attached" }', page)
         self.assertIn('{ "displayName": Translation.tr("Floating"), "value": "floating" }', page)
         self.assertIn("property bool rowVisible: Config.options.appearance.frame.enable && (Config.options.dock.enable ?? false)", page)

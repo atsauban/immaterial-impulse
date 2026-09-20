@@ -2098,9 +2098,12 @@ Singleton {
                 property JsonObject frame: JsonObject {
                     property bool enable: false
                     property int thickness: 0
-                    // How a pinned dock meets the band on its edge: "attached"
-                    // sits on it as a tab, "floating" keeps a gap above it.
-                    property string dock: "attached"
+                    // How the dock meets the band on its edge
+                    // (frame-pin-grammar.md): "auto" follows the pin - a
+                    // pinned dock floats a gap above the band, an unpinned
+                    // one sits on it as a tab - "attached" sits on it even
+                    // pinned, "floating" keeps the gap even unpinned.
+                    property string dock: "auto"
                     // How a bar widget's popup meets the band while open
                     // (frame-pin-grammar.md): "auto" follows how it was
                     // opened - fused when it opened on hover, released (its
