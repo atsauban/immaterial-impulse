@@ -354,6 +354,23 @@ class FrameModeContract(unittest.TestCase):
         self.assertIn("paintsAtRest: true", dock)
         self.assertIn("if (!dockJoin.active || !dockJoin.painting || dockRoot.fullscreenOnThisMonitor || !dockRoot.screen) return null;", dock)
         self.assertIn('GlobalStates.publishFrameJoin(name, "dock", record);', dock)
+        # Stage 4, slice 2 (frame-pin-grammar.md): a bar widget's popup joins
+        # the frame the way the dock does - a FrameJoin on the card owning the
+        # lift and the cut, the record published under "barPopup", the card's
+        # own plate stood down while the frame paints, and a fused card that
+        # grows out of the band from nothing and submerges back to nothing
+        # (bar_popup_unroll.js `fused`). "auto" follows how it was opened.
+        overlay = _strip((ROOT / "modules/imi/bar/BarPopupOverlay.qml").read_text())
+        self.assertIn('GlobalStates.publishFrameJoin(name, "barPopup", record);', overlay)
+        self.assertIn("readonly property bool joinsFrame: FrameGeometry.paintsBarPlate && !overlayWindow.barVertical", overlay)
+        self.assertIn('|| (overlayWindow.popupsLook === "auto" && !(overlayWindow.current?.pinnedOpen ?? false))', overlay)
+        self.assertIn("readonly property bool joinAttached: !overlayWindow.joinsFrame || overlayWindow.wantsFused || overlayWindow.exiting", overlay)
+        self.assertIn("card.parkedSize, overlayWindow.exiting, card.openProgress, overlayWindow.cardFused)", overlay)
+        self.assertIn("readonly property bool plateOnFrame: overlayWindow.joinsFrame && cardJoin.drawsPlate", overlay)
+        self.assertIn("readonly property real offBar: overlayWindow.joinsFrame ? cardJoin.lift : Appearance.sizes.elevationMargin", overlay)
+        unroll = (ROOT / "modules/imi/bar/bar_popup_unroll.js").read_text()
+        self.assertIn("function restHeight(openHeight, heroHeight, parkedSize, exiting, fused)", unroll)
+        self.assertIn('property string popups: "auto"', _strip((ROOT / "modules/common/Config.qml").read_text()))
         self.assertIn("function publishFrameJoin(screen: string, key: string, record: var): void", _strip((ROOT / "GlobalStates.qml").read_text()))
         self.assertIn("Component.onDestruction: publishFrameJoin(null)", dock)
         # Stage 3: where the bar's plate covers its strip, the frame's band on

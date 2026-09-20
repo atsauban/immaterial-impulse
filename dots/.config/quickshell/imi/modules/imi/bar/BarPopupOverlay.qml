@@ -6,6 +6,7 @@ import Quickshell.Hyprland
 import Quickshell.Wayland
 import qs
 import qs.modules.common
+import qs.services
 import qs.modules.common.widgets
 import qs.modules.common.functions
 import "bar_popup_unroll.js" as BarPopupUnroll
@@ -553,6 +554,65 @@ Scope {
                 ? Appearance.sizes.verticalBarWidth
                 : Appearance.sizes.barHeight
 
+            // The card and the frame (frame-pin-grammar.md, slice 2). Where
+            // the frame paints the bar's plate as its band the card can be
+            // FUSED to it - on the band's inner edge, no elevation gap, grown
+            // out of the band from nothing and submerged back into it - or
+            // RELEASED, today's card a gap off the band. "auto" follows how it
+            // was opened: hovered is fused, pinned by a click is released, and
+            // the click on a fused card is the lift and the cut. The frame
+            // paints the plate either way (the record below, published like
+            // the dock's under "barPopup"); this card stands down while it
+            // does and keeps the content, the input and the hover.
+            readonly property bool joinsFrame: FrameGeometry.paintsBarPlate && !overlayWindow.barVertical
+            readonly property string popupsLook: String(Config.options.appearance.frame.popups ?? "auto")
+            readonly property bool wantsFused: overlayWindow.popupsLook === "fused"
+                || (overlayWindow.popupsLook === "auto" && !(overlayWindow.current?.pinnedOpen ?? false))
+            // ...and on the way out whatever it was: a released card lands
+            // and swallows into the band before it submerges.
+            readonly property bool joinAttached: !overlayWindow.joinsFrame || overlayWindow.wantsFused || overlayWindow.exiting
+            readonly property bool cardFused: overlayWindow.joinsFrame && overlayWindow.joinAttached
+            FrameJoin {
+                id: cardJoin
+                anchors.fill: parent
+                plate: card
+                edge: overlayWindow.barEdge
+                attached: overlayWindow.joinAttached
+                travel: Appearance.sizes.elevationMargin
+                bandInset: overlayWindow.barThickness
+                color: FrameGeometry.color
+                active: overlayWindow.joinsFrame
+                paintsLocally: false
+                paintsAtRest: true
+            }
+            // The plate's own colour: the band's while fused, the card's
+            // while released, and the change rides the card's colour tier so
+            // the lift and the tint move together.
+            property color platePaint: cardJoin.fused
+                ? FrameGeometry.color
+                : ColorUtils.transparentize(Appearance.colors.colLayer1Base, Appearance.backgroundTransparency)
+            Behavior on platePaint { animation: Appearance.animation.elementMoveFast.colorAnimation.createObject(this) }
+            readonly property var frameJoinRecord: {
+                if (!cardJoin.active || !cardJoin.painting || !overlayWindow.modelData) return null;
+                return {
+                    edge: overlayWindow.barEdge,
+                    plate: { x: card.x, y: card.y, width: card.width, height: card.height },
+                    radii: { topLeft: card.radius, topRight: card.radius,
+                             bottomRight: card.radius, bottomLeft: card.radius },
+                    gap: cardJoin.state.gap, neck: cardJoin.state.neck, bulge: cardJoin.state.bulge,
+                    meniscus: cardJoin.meniscus, blendPerPixel: cardJoin.blendPerPixel,
+                    climbFraction: cardJoin.climbFraction, color: overlayWindow.platePaint
+                };
+            }
+            function publishFrameJoin(record) {
+                const name = overlayWindow.modelData?.name ?? "";
+                if (!name) return;
+                GlobalStates.publishFrameJoin(name, "barPopup", record);
+            }
+            onFrameJoinRecordChanged: publishFrameJoin(frameJoinRecord)
+            Component.onCompleted: publishFrameJoin(frameJoinRecord)
+            Component.onDestruction: publishFrameJoin(null)
+
             SequentialAnimation {
                 id: contentEnter
                 property Item item: null
@@ -590,7 +650,7 @@ Scope {
 
             StyledRectangularShadow {
                 target: card
-                visible: card.visible
+                visible: card.visible && !card.plateOnFrame
                 opacity: card.opacity
                 // A cached shadow renders to an offscreen texture, which a card
                 // whose size changes every frame invalidates every frame.
@@ -626,7 +686,7 @@ Scope {
 
                 width: 0
                 height: BarPopupUnroll.cardHeight(card.openHeight, card.heroHeight,
-                    card.parkedSize, overlayWindow.exiting, card.openProgress)
+                    card.parkedSize, overlayWindow.exiting, card.openProgress, overlayWindow.cardFused)
                 // Bindings, not assignments, and that is what the driver bought.
                 // On the bottom and right edges the bar-adjacent coordinate is a
                 // function of the animating size, which is why this used to be
@@ -640,11 +700,14 @@ Scope {
                         ? overlayWindow.width - overlayWindow.barThickness - Appearance.sizes.elevationMargin - card.width
                         : overlayWindow.barThickness + Appearance.sizes.elevationMargin)
                     : card.alongBar
+                // The gap off the bar: the elevation margin, or - where the
+                // frame joins the card - the join's lift, nothing while fused.
+                readonly property real offBar: overlayWindow.joinsFrame ? cardJoin.lift : Appearance.sizes.elevationMargin
                 y: overlayWindow.barVertical
                     ? card.alongBar
                     : (overlayWindow.barEdge === "bottom"
-                        ? overlayWindow.height - overlayWindow.barThickness - Appearance.sizes.elevationMargin - card.height
-                        : overlayWindow.barThickness + Appearance.sizes.elevationMargin)
+                        ? overlayWindow.height - overlayWindow.barThickness - card.offBar - card.height
+                        : overlayWindow.barThickness + card.offBar)
                 // Clamped because the spatial tier overshoots past 1 and
                 // undershoots below 0 on the way back; the geometry keeps the
                 // overshoot deliberately, an alpha cannot use it.
@@ -658,9 +721,14 @@ Scope {
                 // surface above PopupBlurThreshold's line, which already sits
                 // below the bar's body - fainter than this card, since the bar
                 // thins colLayer0 by its own opacity as well.
-                color: ColorUtils.transparentize(Appearance.colors.colLayer1Base, Appearance.backgroundTransparency)
+                // Stood down while the frame paints the plate (the same
+                // silhouette in the same colour, and a translucent fill drawn
+                // twice is darker); the content stays.
+                readonly property bool plateOnFrame: overlayWindow.joinsFrame && cardJoin.drawsPlate
+                color: card.plateOnFrame ? "transparent"
+                    : ColorUtils.transparentize(Appearance.colors.colLayer1Base, Appearance.backgroundTransparency)
                 radius: Appearance.rounding.normal + 4
-                border.width: Appearance.borderWidth.standard
+                border.width: card.plateOnFrame ? 0 : Appearance.borderWidth.standard
                 border.color: Appearance.colors.colLayer0Border
 
                 // Every tier is taken WHOLE - duration, easing type and curve

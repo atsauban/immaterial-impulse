@@ -147,6 +147,25 @@ ContentPage {
                         text: Translation.tr("Sits on the frame's band as a tab, or floats a gap above it.")
                     }
                 }
+                ConfigSelectionArray {
+                    property bool rowVisible: Config.options.appearance.frame.enable
+                    icon: "picture_in_picture_alt"
+                    text: Translation.tr("Bar widget popups")
+                    currentValue: Config.options.appearance.frame.popups ?? "auto"
+                    onSelected: newValue => { Config.options.appearance.frame.popups = newValue; }
+                    options: [
+                        { "displayName": Translation.tr("Auto"), "value": "auto" },
+                        { "displayName": Translation.tr("Fused"), "value": "fused" },
+                        { "displayName": Translation.tr("Released"), "value": "released" }
+                    ]
+                    detailContent: StyledText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        font.pixelSize: Appearance.font.pixelSize.smaller
+                        color: Appearance.colors.colSubtext
+                        text: Translation.tr("Auto: a popup opened by hovering grows out of the bar's band and closes back into it; one pinned by a click lifts off as its own card. Fused or Released force one look for both.")
+                    }
+                }
             }
         }
 

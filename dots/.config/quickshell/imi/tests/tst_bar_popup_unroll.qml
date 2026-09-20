@@ -157,4 +157,17 @@ TestCase {
         const from = BarPopupUnroll.entranceScale(0, rise, 400);
         compare(BarPopupUnroll.entranceScale(0.5, rise, 400), from + (1 - from) / 2);
     }
+
+    function test_a_fused_card_grows_from_nothing_and_submerges_to_nothing() {
+        // Joined to the frame's band there is no parked square and no hero
+        // rest: height is progress times the open height, both ways.
+        compare(BarPopupUnroll.restHeight(240, 80, 24, false, true), 0);
+        compare(BarPopupUnroll.restHeight(240, 80, 24, true, true), 0);
+        compare(BarPopupUnroll.cardHeight(240, 80, 24, false, 0, true), 0);
+        fuzzyCompare(BarPopupUnroll.cardHeight(240, 80, 24, false, 0.5, true), 120, 0.001);
+        compare(BarPopupUnroll.cardHeight(240, 80, 24, false, 1, true), 240);
+        // ...and a free card keeps its rests.
+        compare(BarPopupUnroll.restHeight(240, 80, 24, false, false), 80);
+        compare(BarPopupUnroll.restHeight(240, 80, 24, true, false), 24);
+    }
 }

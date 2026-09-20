@@ -49,8 +49,14 @@ function heroSectionHeight(sections, padding) {
 // small square parked on the widget the card belongs to - the card grows out of
 // and collapses back into the bar, which is what it did before the unroll and
 // is still the honest answer when there is no section to open at.
-function restHeight(openHeight, heroHeight, parkedSize, exiting) {
+// `fused`: the card is joined to the frame's band (frame-pin-grammar.md),
+// and a fused card has no rest to park at - it grows out of the band from
+// nothing and submerges back into it to nothing. The parked square and the
+// hero row are the free card's rests.
+function restHeight(openHeight, heroHeight, parkedSize, exiting, fused) {
     if (!(openHeight > 0))
+        return 0;
+    if (fused)
         return 0;
     const rest = (exiting || !(heroHeight > 0)) ? parkedSize : heroHeight;
     return Math.max(0, Math.min(rest, openHeight));
@@ -67,10 +73,10 @@ function restHeight(openHeight, heroHeight, parkedSize, exiting) {
 // and a card that overshoots its content and settles back is the tier's own
 // expressiveness - the same overshoot the height Behavior this replaced already
 // produced.
-function cardHeight(openHeight, heroHeight, parkedSize, exiting, progress) {
+function cardHeight(openHeight, heroHeight, parkedSize, exiting, progress, fused) {
     if (!(openHeight > 0))
         return 0;
-    const rest = restHeight(openHeight, heroHeight, parkedSize, exiting);
+    const rest = restHeight(openHeight, heroHeight, parkedSize, exiting, fused);
     const travelled = progress > 0 ? progress : 0;
     return rest + (openHeight - rest) * travelled;
 }

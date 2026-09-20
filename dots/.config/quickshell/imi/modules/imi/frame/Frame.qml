@@ -195,9 +195,16 @@ Scope {
                 // plate does (FrameJoinField.pinnedBox says why). It changes
                 // only with the surface or the band, and then the field is
                 // made again rather than resized: a Loader keyed on it.
-                readonly property real joinStripDepth: 160
-                function joinStripFor(edge) {
-                    const b = surface.bandEdgeFor(edge), d = surface.joinStripDepth;
+                // Deep enough for the tallest plate that key can publish at
+                // full lift, and constant per key: a strip that grew with the
+                // plate would remake the field every frame.
+                function joinStripDepthFor(key) {
+                    if (key === "barPopup") return 720;
+                    if (String(key).startsWith("notification")) return 480;
+                    return 160;
+                }
+                function joinStripFor(edge, key) {
+                    const b = surface.bandEdgeFor(edge), d = surface.joinStripDepthFor(key);
                     if (edge === "top") return Qt.rect(0, b, surface.width, d);
                     if (edge === "left") return Qt.rect(b, 0, d, surface.height);
                     if (edge === "right") return Qt.rect(b - d, 0, d, surface.height);
@@ -217,7 +224,7 @@ Scope {
                     required property string key
                     readonly property var record: surface.joins[painter.key] ?? null
                     readonly property string edge: painter.record?.edge ?? "bottom"
-                    readonly property rect strip: surface.joinStripFor(painter.edge)
+                    readonly property rect strip: surface.joinStripFor(painter.edge, painter.key)
                     readonly property var field: fieldLoader.item
                     readonly property Instantiator pool: outlinePool
                     Loader {

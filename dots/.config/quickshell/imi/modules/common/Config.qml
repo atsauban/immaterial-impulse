@@ -2101,6 +2101,12 @@ Singleton {
                     // How a pinned dock meets the band on its edge: "attached"
                     // sits on it as a tab, "floating" keeps a gap above it.
                     property string dock: "attached"
+                    // How a bar widget's popup meets the band while open
+                    // (frame-pin-grammar.md): "auto" follows how it was
+                    // opened - fused when it opened on hover, released (its
+                    // own card a gap off the band) when it was pinned by a
+                    // click - "fused" and "released" force one look.
+                    property string popups: "auto"
                 }
                 property bool extraBackgroundTint: true
                 property int fakeScreenRounding: 2 // 0: None | 1: Always | 2: When not fullscreen
