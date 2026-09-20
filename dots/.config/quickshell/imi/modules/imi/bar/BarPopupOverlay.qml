@@ -268,6 +268,13 @@ Scope {
             // target is one frame away - the same zero-interval deferral, for
             // the same reason, as the popup window's own updatePosition().
             function retarget() {
+                // Never under an exit: the write of openProgress below is the
+                // opening's, and a leaving card re-opened by it lands and
+                // then vanishes at the exit timer instead of submerging. The
+                // Privacy card resizes as its controls collapse on unpin,
+                // which retargets a content-driven card - dismissed by a
+                // click away, that collapse ran under its own exit (footage).
+                if (overlayWindow.exiting) return;
                 const popup = overlayWindow.current;
                 const content = popup?.contentItem;
                 const target = popup?.hoverTarget;
@@ -612,10 +619,16 @@ Scope {
             readonly property bool cardOverhangs: overlayWindow.plateSpan !== null
                 && (overlayWindow.plateSpan.max - overlayWindow.plateSpan.min) < card.width
             // The plate moved (the bar's lift, its slide) or the card's state
-            // turned: place the card again on what it now joins.
-            onBarInnerChanged: if (overlayWindow.current) overlayWindow.retarget()
-            onPlateSpanChanged: if (overlayWindow.current) overlayWindow.retarget()
-            onWantsFusedChanged: if (overlayWindow.current) overlayWindow.retarget()
+            // turned: place the card again on what it now joins - never while
+            // it is leaving. A pinned card dismissed turns fused as it goes,
+            // and a retarget then wrote openProgress back to 1 under the exit,
+            // so the card landed and vanished instead of submerging (footage).
+            function replaceCard() {
+                if (overlayWindow.current) overlayWindow.retarget();
+            }
+            onBarInnerChanged: overlayWindow.replaceCard()
+            onPlateSpanChanged: overlayWindow.replaceCard()
+            onWantsFusedChanged: overlayWindow.replaceCard()
             // The bar's plate is itself a join on the frame and may be lifted
             // off the band (frame-pin-grammar.md, the bar row) or slid out by
             // auto-hide; a popup fuses to the plate's inner edge wherever that
