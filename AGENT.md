@@ -494,12 +494,12 @@ over an empty workspace (`HyprlandData.occupiedByMonitorName`, `GlobalStates.bar
 over IPC; turned at review, "fix(frame): auto hugs with windows, the bar's shadow stands down, Hug and
 Float are states"), "attached"/"floating" force one look. In frame mode Hug and Float are STATES of the
 plate: the Bar style row offers Plate / Islands / M3 and a Bar state row picks Auto / Hug / Float; the
-Islands style follows the same state (each island rises out of the band, on the tween for now), and its
-popups fuse to their section's island the way the plate's do - the narrower body is the drop
-(`BarPopupOverlay.islandDrops`), the frame paints island and card together (`"barIsland"` +
-`"barPopup"`, each naming the other's edge in `joinBandEdgeFor`), the bar's island stands down by section
-("feat(frame): islands treat popups like the plate"); the bar's own shadow stands down while the frame
-paints its plate. Released, the bar reserves its lift as well
+Islands style is pieces of the plate on the same join: Bar.qml publishes one record per island
+(`"barIsland:<section>"`), the frame paints them with their meniscus, the outer islands hug their corner,
+the style takes the plate's height and zone in frame mode (`Appearance.sizes.frameIslands`), and a popup
+fuses to its section's island with the card as the drop (its record names the section for
+`joinBandEdgeFor`; "feat(frame): islands are pieces of the plate"); the bar's own shadow stands down while
+the frame paints its plate. Released, the bar reserves its lift as well
 (`releaseZoneExtra`, the dock's `splitZoneExtra` rule: flips at the start of a lift and the end of a
 landing, one re-tile per state change) - with the zone held the island sat ON the first window's edge
 (measured at 8x, "feat(frame): a released bar reserves its lift"); the notification popup's `roomOn`
