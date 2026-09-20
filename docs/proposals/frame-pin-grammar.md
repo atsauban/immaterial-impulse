@@ -290,6 +290,16 @@ translucent against the band, it is the band.
   overlay gated it. Now the popup asks to close (`pinnedOpen: root.popupOpen`) and the Loader
   stays active until the overlay has released the content after the exit (`StyledPopup.held`,
   set at the claim, cleared at `aboutToRelease`).
+- **The outgoing content holds still** (footage: weather to calendar, "choppy UI elements from
+  the widget the user is moving from"). On a takeover the leaving tree stayed centred in the
+  content slot, which is already the ARRIVING tree's settled box: a taller outgoing tree showed
+  its middle band the moment the slot shrank - header cut away, the rows below it jumping to the
+  top, the clip then walking over them. The leaving tree is re-parented to the host and pinned
+  to its top-left for the fade, so it keeps the top the user was reading and the card's edge
+  covers it from below and from the right. Not chosen: holding the leaving picture at its screen
+  position outside the card (it would paint past the plate's body as the card shrinks - the
+  clip is load-bearing), or a snapshot (`grabToImage`) of it, which costs a readback per
+  takeover for the same picture.
 - The bar popup's open and close keep their `openProgress` curve for now; the plate's growth out
   of the band and its submerge are that curve applied to a fused card (rest height 0). Moving
   the card's own scalar onto the fluid spring is a separate decision.
