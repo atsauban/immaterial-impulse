@@ -11,6 +11,8 @@ own repo; the installer pins which revision it builds.
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-09-21
+
 ### Fixed
 - Frame mode, Islands style: a bar widget's popup wider than its island now lines up flush
   with a corner island's outer edge (centred under the middle one) and the island stands on
@@ -4037,7 +4039,8 @@ illogical-impulse), collecting the work done to date:
   (`Super`+`/`).
 - This changelog and versioning.
 
-[Unreleased]: https://github.com/XephyLon/immaterial-impulse/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/XephyLon/immaterial-impulse/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/XephyLon/immaterial-impulse/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/XephyLon/immaterial-impulse/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/XephyLon/immaterial-impulse/compare/v1.1.0...v1.2.0
 [0.32.0]: https://github.com/XephyLon/immaterial-impulse/compare/v0.31.2...v0.32.0
